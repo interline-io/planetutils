@@ -1,4 +1,4 @@
-set +e
+set -e
 : ${PLANET_OSM_BUCKET?"Need to set PLANET_OSM_BUCKET"}
 
 PLANET_URL="https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf"
@@ -15,8 +15,7 @@ remove=${planets[@]:4}
 if [ -z "$latest" ]
 then
   echo "downloading latest planet from ${PLANET_URL}"
-  echo "test" > planet-latest.osm.pbf
-  # curl -s -o planet-latest.osm.pbf ${PLANET_URL}
+  curl -s -o planet-latest.osm.pbf ${PLANET_URL}
 else
   echo "downloading s3://${PLANET_OSM_BUCKET}/${latest}"
   aws s3 cp s3://${PLANET_OSM_BUCKET}/${latest} planet-latest.osm.pbf
@@ -26,8 +25,7 @@ fi
 today=$(date -u +%Y-%m-%dT%H:%m:%S)
 updated="planet-${today}.osm.pbf"
 echo "osmupdate"
-echo "test" > ${updated}
-# osmupdate --verbose --day --hour planet-latest.osm.pbf ${updated}
+osmupdate --verbose --day --hour planet-latest.osm.pbf ${updated}
 
 # Upload new planet
 echo "uploading to s3://${PLANET_OSM_BUCKET}/${updated}"
