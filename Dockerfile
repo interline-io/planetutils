@@ -1,9 +1,19 @@
 FROM ubuntu:16.04
+LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.io>"
 
-RUN apt-get update && apt-get install awscli osmctools curl -y
+RUN apt-get update -y
+RUN apt-get install \
+      curl \
+      wget \
+      osmosis \
+      osmctools \
+      parallel \
+      awscli \
+      software-properties-common \
+      -y
 
 COPY scripts /scripts
 
 WORKDIR /app
 
-CMD [ "/bin/bash", "/scripts/update_planet.sh" ]
+CMD [ "/bin/bash", "/scripts/update_planet_osmctools.sh" ]
