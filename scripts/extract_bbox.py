@@ -17,7 +17,7 @@ def load_bboxes(csvpath):
             bboxes.append(row)
     return bboxes
 
-def extract_bboxes(osmpath, bboxes, workers=2):
+def extract_bboxes(osmpath, bboxes, workers=1):
     if not os.path.exists(osmpath):
         raise Exception('osmpath does not exist: %s'%osmpath)
     args = ["osmosis"]
@@ -41,5 +41,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("osmpath", help="osm path")
     parser.add_argument("csvpath", help="csv path with bbox definitions")
+    parser.add_argument("--workers", default=1, help="osmosis read workers")
     args = parser.parse_args()
-    extract_bboxes(args.osmpath, load_bboxes(args.csvpath))
+    extract_bboxes(args.osmpath, load_bboxes(args.csvpath), workers=args.workers)
