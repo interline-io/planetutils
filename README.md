@@ -10,11 +10,13 @@ Scripts and a Docker container to maintain your own mirror of the [OpenStreetMap
 Using [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis):
 
 ```sh
-docker run --rm -v /mnt:/data -t interline/osm-planet-update:latest /scripts/minutely_update_osmosis.sh
+mkdir -p data
+docker run --rm -v data:/data -t interline/osm-planet-update:release-v0.1.1 /scripts/update_planet_osmosis.sh
 ```
 
 Using [Osmctools](https://github.com/ramunasd/osmctools)
 
 ```sh
-docker run --rm -v /mnt:/data -t interline/osm-planet-update:latest /scripts/minutely_update_osmctools.sh
+mkdir -p data
+docker run --rm -v data:/data -t interline/osm-planet-update:release-v0.1.1 /scripts/update_planet_osmctools.sh
 ```
