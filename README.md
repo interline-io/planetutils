@@ -1,5 +1,5 @@
-![current release version](https://img.shields.io/github/release/interline-io/osm-planet-update.svg)
-![Docker Hub build status](https://img.shields.io/docker/build/interline/osm-planet-update.svg)
+[![current release version](https://img.shields.io/github/release/interline-io/osm-planet-update.svg)](https://github.com/interline-io/osm-planet-update/releases)
+[![Docker Hub build status](https://img.shields.io/docker/build/interline/osm-planet-update.svg)](https://hub.docker.com/r/interline/osm-planet-update/)
 
 # OSM Planet Update Tools
 
