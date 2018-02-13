@@ -20,12 +20,12 @@ def load_bboxes(csvpath):
 def extract_bboxes(osmpath, bboxes, workers=1):
     if not os.path.exists(osmpath):
         raise Exception('osmpath does not exist: %s'%osmpath)
-    args = ["osmosis"]
+    args = ['osmosis']
     args += ['--read-pbf-fast', osmpath, 'workers=%s'%int(workers)]
     args += ['--tee', str(len(bboxes))]
     for name,top,left,bottom,right in bboxes:
         arg = [
-            "--bounding-box",
+            '--bounding-box',
             'top=%0.5f'%float(top),
             'left=%0.5f'%float(left),
             'bottom=%0.5f'%float(bottom),
@@ -34,13 +34,13 @@ def extract_bboxes(osmpath, bboxes, workers=1):
             '%s.osm.pbf'%name
         ]
         args += arg
-    print " ".join(args)
+    print ' '.join(args)
     subprocess.check_output(args, shell=False)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("osmpath", help="osm path")
-    parser.add_argument("csvpath", help="csv path with bbox definitions")
-    parser.add_argument("--workers", default=1, help="osmosis read workers")
+    parser.add_argument('osmpath', help='osm path')
+    parser.add_argument('csvpath', help='csv path with bbox definitions')
+    parser.add_argument('--workers', default=1, help='osmosis read workers')
     args = parser.parse_args()
     extract_bboxes(args.osmpath, load_bboxes(args.csvpath), workers=args.workers)
