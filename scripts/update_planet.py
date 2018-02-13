@@ -12,7 +12,7 @@ def get_planet(bucket=None):
 class PlanetUpdater(object):
     def __init__(self, osmpath):
         self.osmpath = osmpath
-        self.workdir = 'osmosis_work'
+        self.workdir = '.'
         self.osmosis_path = '/usr/local/bin/osmosis'
         self.osmconvert_path = '/usr/local/bin/osmconvert'
         self.env = {
@@ -21,11 +21,21 @@ class PlanetUpdater(object):
 
     def osmosis(self, *args):
         cmd = [self.osmosis_path] + list(args)
-        return subprocess.check_output(cmd, shell=False, env=self.env)
+        print " ".join(cmd)
+        return subprocess.check_output(
+            cmd,
+            shell=False,
+            cwd=self.workdir
+        )
 
     def osmconvert(self, *args):
         cmd = [self.osmconvert_path] + list(args)
-        return subprocess.check_output(cmd, shell=False, env=self.env)
+        print " ".join(cmd)
+        return subprocess.check_output(
+            cmd,
+            shell=False,
+            cwd=self.workdir
+        )
 
     def update_planet(self, outpath):
         self.initialize()
