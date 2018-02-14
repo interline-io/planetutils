@@ -1,32 +1,21 @@
 #!/usr/bin/env python
+import re
 import os
 import csv
 import argparse
 import subprocess
 import urllib2
 
+import boto3
+
 def get_planet(bucket=None):
     bucket = bucket or 'osm-pds'
     return 'planet-latest.osm.pbf'
 
-class PlanetUpdater(object):
-    def __init__(self, osmpath):
+class PlanetBase(object):
+    def __init__(self, osmpath=None, grain='hour', changeset_url=None):
         self.osmpath = osmpath
         self.workdir = '.'
-
-    def update_planet(self, outpath):
-        pass
-
-class PlanetUpdaterOsmupdate(PlanetUpdater):
-    def update_planet(self, outpath):
-        pass
-
-class PlanetUpdaterOsmosis(PlanetUpdater):
-    def update_planet(self, outpath):
-        self._initialize()
-        self._initialize_state()
-        self._get_changeset()
-        self._apply_changeset(outpath)
 
     def osmosis(self, *args):
         cmd = ['osmosis'] + list(args)
@@ -46,6 +35,71 @@ class PlanetUpdaterOsmosis(PlanetUpdater):
             cwd=self.workdir
         )
 
+    def get_timestamp(self):
+        timestamp = self.osmconvert(
+            self.osmpath,
+            '--out-timestamp'
+        )
+        if 'invalid' in timestamp:
+            statistics = self.osmconvert(
+                self.osmpath,
+                '--out-statistics'
+            )
+            timestamp = [
+                i.partition(":")[2].strip() for i in statistics.split("\n")
+                if i.startswith('timestamp max')
+            ][0]
+        return timestamp
+
+    def download_planet(self, outpath):
+        raise NotImplementedError
+
+    def update_planet(self, outpath, grain='hour', changeset_url=None):
+        raise NotImplementedError
+
+class PlanetDownloaderHttp(PlanetBase):
+    pass
+
+class PlanetDownloaderS3(PlanetBase):
+    def download_planet(self, outpath):
+        self.download_planet_latest(outpath)
+
+    def download_planet_latest(self, outpath, bucket=None, prefix=None, match=None):
+        match = match or '.*(planet[-_:T0-9]+.osm.pbf)$'
+        bucket = bucket or 'osm-pds'
+        objs = self._get_planets(bucket, prefix, match)
+        objs = sorted(objs, key=lambda x:x.key)
+        for i in objs:
+            print i
+        planet = objs[-1]
+        self._download(planet.bucket_name, planet.key, outpath)
+
+    def _download(self, bucket_name, key, outpath):
+        print "downloading: s3://%s/%s to %s"%(bucket_name, key, outpath)
+        s3 = boto3.client('s3')
+        s3.download_file(bucket_name, key, outpath)
+
+    def _get_planets(self, bucket, prefix, match):
+        r = re.compile(match)
+        s3 = boto3.resource('s3')
+        s3bucket = s3.Bucket(bucket)
+        objs = []
+        for obj in s3bucket.objects.filter(Prefix=(prefix or '')):
+            if r.match(obj.key):
+                objs.append(obj)
+        return objs
+
+class PlanetUpdaterOsmupdate(PlanetBase):
+    pass
+
+class PlanetUpdaterOsmosis(PlanetBase):
+    def update_planet(self, outpath, grain='hour', changeset_url=None):
+        self.changeset_url = changeset_url or 'http://planet.openstreetmap.org/replication/%s'%grain
+        self._initialize()
+        self._initialize_state()
+        self._get_changeset()
+        self._apply_changeset(outpath)
+
     def _initialize(self):
         configpath = os.path.join(self.workdir, 'configuration.txt')
         if os.path.exists(configpath):
@@ -59,17 +113,17 @@ class PlanetUpdaterOsmosis(PlanetUpdater):
             '--read-replication-interval-init',
             'workingDirectory=%s'%self.workdir
         )
+        with open(configpath, 'w') as f:
+            f.write("""
+                baseUrl=%s
+                maxInterval=0
+            """%self.changeset_url)
 
     def _initialize_state(self):
         statepath = os.path.join(self.workdir, 'state.txt')
         if os.path.exists(statepath):
             return
-        timestamp = self.osmconvert(
-            self.osmpath,
-            '--out-timestamp'
-        )
-        if 'invalid' in timestamp:
-            raise Exception('invalid timestamp: %s'%self.osmpath)
+        timestamp = self.get_timestamp()
         url = 'https://replicate-sequences.osm.mazdermind.de/?%s'%timestamp
         state = urllib2.urlopen(url).read()
         with open(statepath, 'w') as f:
