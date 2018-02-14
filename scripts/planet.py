@@ -13,14 +13,23 @@ class PlanetUpdater(object):
     def __init__(self, osmpath):
         self.osmpath = osmpath
         self.workdir = '.'
-        self.osmosis_path = '/usr/local/bin/osmosis'
-        self.osmconvert_path = '/usr/local/bin/osmconvert'
-        self.env = {
-            'JAVACMD_OPTIONS': '-Djava.io.tmpdir=tmp'
-        }
+
+    def update_planet(self, outpath):
+        pass
+
+class PlanetUpdaterOsmupdate(PlanetUpdater):
+    def update_planet(self, outpath):
+        pass
+
+class PlanetUpdaterOsmosis(PlanetUpdater):
+    def update_planet(self, outpath):
+        self._initialize()
+        self._initialize_state()
+        self._get_changeset()
+        self._apply_changeset(outpath)
 
     def osmosis(self, *args):
-        cmd = [self.osmosis_path] + list(args)
+        cmd = ['osmosis'] + list(args)
         print " ".join(cmd)
         return subprocess.check_output(
             cmd,
@@ -29,7 +38,7 @@ class PlanetUpdater(object):
         )
 
     def osmconvert(self, *args):
-        cmd = [self.osmconvert_path] + list(args)
+        cmd = ['osmconvert'] + list(args)
         print " ".join(cmd)
         return subprocess.check_output(
             cmd,
@@ -37,13 +46,7 @@ class PlanetUpdater(object):
             cwd=self.workdir
         )
 
-    def update_planet(self, outpath):
-        self.initialize()
-        self.get_state()
-        self.get_changeset()
-        self.apply_changeset(outpath)
-
-    def initialize(self):
+    def _initialize(self):
         configpath = os.path.join(self.workdir, 'configuration.txt')
         if os.path.exists(configpath):
             return
@@ -57,7 +60,7 @@ class PlanetUpdater(object):
             'workingDirectory=%s'%self.workdir
         )
 
-    def get_state(self):
+    def _initialize_state(self):
         statepath = os.path.join(self.workdir, 'state.txt')
         if os.path.exists(statepath):
             return
@@ -72,7 +75,7 @@ class PlanetUpdater(object):
         with open(statepath, 'w') as f:
             f.write(state)
 
-    def get_changeset(self):
+    def _get_changeset(self):
         self.osmosis(
             '--read-replication-interval',
             'workingDirectory=%s'%self.workdir,
@@ -81,7 +84,7 @@ class PlanetUpdater(object):
             'changeset.osm.gz'
         )
 
-    def apply_changeset(self, outpath):
+    def _apply_changeset(self, outpath):
         self.osmosis(
             '--read-xml-change',
             'changeset.osm.gz',
@@ -94,7 +97,8 @@ class PlanetUpdater(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('osmpath', help='osm output path')
+    parser.add_argument('osmpath', help='osm path')
+    parser.add_argument('outpath', help='output path')
     args = parser.parse_args()
-    p = PlanetUpdater(args.osmpath)
-    p.update_planet('updated.osm.pbf')
+    p = PlanetUpdaterOsmosis(args.osmpath)
+    p.update_planet(args.outpath)
