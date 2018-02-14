@@ -3,6 +3,8 @@ LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.i
 
 RUN apt-get update -y
 RUN apt-get install \
+      python \
+      python-boto3 \
       curl \
       wget \
       osmosis \
