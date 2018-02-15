@@ -90,13 +90,23 @@ class Planet(PlanetBase):
     pass
 
 class PlanetDownloaderHttp(PlanetBase):
-    pass
+    def download_planet(self, url=None):
+        if os.path.exists(self.osmpath):
+            raise Exception('planet file exists: %s'%self.osmpath)
+        url = url or 'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf'
+        subprocess.check_output([
+            'curl',
+            '-o', self.osmpath,
+            url
+        ])
 
 class PlanetDownloaderS3(PlanetBase):
     def download_planet(self):
         self.download_planet_latest()
 
     def download_planet_latest(self, bucket=None, prefix=None, match=None):
+        if os.path.exists(self.osmpath):
+            raise Exception('planet file exists: %s'%self.osmpath)
         match = match or '.*(planet[-_:T0-9]+.osm.pbf)$'
         bucket = bucket or 'osm-pds'
         objs = self._get_planets(bucket, prefix, match)
@@ -104,8 +114,6 @@ class PlanetDownloaderS3(PlanetBase):
         for i in objs:
             print "found planet: s3://%s/%s"%(i.bucket_name, i.key)
         planet = objs[-1]
-        if os.path.exists(self.osmpath):
-            raise Exception('planet file exists: %s'%self.osmpath)
         print "downloading: s3://%s/%s to %s"%(planet.bucket_name, planet.key, self.osmpath)
         self._download(planet.bucket_name, planet.key)
 
@@ -127,7 +135,7 @@ class PlanetUpdaterOsmupdate(PlanetBase):
     pass
 
 class PlanetUpdaterOsmosis(PlanetBase):
-    def update_planet(self, outpath, grain='hour', changeset_url=None):
+    def update_planet(self, outpath, grain='minute', changeset_url=None):
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
         self.changeset_url = changeset_url or 'http://planet.openstreetmap.org/replication/%s'%grain
