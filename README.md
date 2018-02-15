@@ -11,12 +11,5 @@ Using [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis):
 
 ```sh
 mkdir -p data
-docker run --rm -v data:/data -t interline/osm-planet-update:release-v0.1.1 /scripts/update_planet_osmosis.sh
-```
-
-Using [Osmctools](https://github.com/ramunasd/osmctools)
-
-```sh
-mkdir -p data
-docker run --rm -v data:/data -t interline/osm-planet-update:release-v0.1.1 /scripts/update_planet_osmctools.sh
+docker run --rm -v data:/data -t interline/osm-planet-update:release-v0.1.1 
 ```
