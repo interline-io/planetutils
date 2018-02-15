@@ -18,4 +18,4 @@ COPY scripts /scripts
 
 WORKDIR /app
 
-CMD [ "/bin/bash", "/scripts/update_planet_osmctools.sh" ]
+CMD [ "/usr/bin/python", "/scripts/update_planet.py", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]

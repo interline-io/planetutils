@@ -106,7 +106,7 @@ class PlanetDownloaderS3(PlanetBase):
         planet = objs[-1]
         if os.path.exists(self.osmpath):
             raise Exception('planet file exists: %s'%self.osmpath)
-        print "downloading: s3://%s/%s to %s"%(bucket_name, key, self.osmpath)
+        print "downloading: s3://%s/%s to %s"%(planet.bucket_name, planet.key, self.osmpath)
         self._download(planet.bucket_name, planet.key)
 
     def _download(self, bucket_name, key):
