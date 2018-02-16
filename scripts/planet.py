@@ -5,8 +5,80 @@ import csv
 import argparse
 import subprocess
 import urllib2
+import math
 
 import boto3
+
+def makedirs(path):
+    try:
+        os.makedirs(path)
+    except OSError, e:
+        pass
+
+def load_bboxes(csvpath):
+    # bbox csv format:
+    # name, top, left, bottom, right
+    if not os.path.exists(csvpath):
+        raise Exception('csvpath does not exist: %s'%csvpath)
+    bboxes = []
+    with open(csvpath) as f:
+        reader = csv.reader(f)
+        for row in reader:
+            bboxes.append(row)
+    return bboxes
+    
+def download_gzip(url, path):
+    with open(path, 'wb') as f:
+        ps1 = subprocess.Popen(['curl', '-s', url], stdout=subprocess.PIPE)
+        ps2 = subprocess.Popen(['gzip', '-d'], stdin=ps1.stdout, stdout=f)
+        ps2.wait()    
+
+class ElevationDownloader(object):
+    HGT_SIZE = (3601 * 3601 * 2)
+    
+    def __init__(self, outpath):
+        self.outpath = outpath
+
+    def download_bboxes_csv(self, csvpath):
+        self.download_bboxes(load_bboxes(csvpath))
+
+    def download_bboxes(self, bboxes):
+        for bbox in bboxes:
+            self.download_bbox(bbox)
+    
+    def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='skadi'):
+        # map bbox top, left, bottom, right to min_x, max_x, min_y, max_y
+        name = bbox[0]
+        top, left, bottom, right = map(float, bbox[1:])
+        min_x = int(math.floor(left))
+        max_x = int(math.ceil(right))
+        min_y = int(math.floor(bottom))
+        max_y = int(math.ceil(top))
+        for x in xrange(min_x, max_x):
+            for y in xrange(min_y, max_y):
+                self.download_hgt(bucket, prefix, x, y)
+    
+    def hgtpath(self, x, y):
+        ns = lambda i:'S%02d'%abs(i) if i < 0 else 'N%02d'%abs(i)
+        ew = lambda i:'W%03d'%abs(i) if i < 0 else 'E%03d'%abs(i)
+        key = '%s%s.hgt'%(ns(y), ew(x))
+        return ns(y), key
+
+    def download_hgt(self, bucket, prefix, x, y):
+        od, key = self.hgtpath(x, y)
+        op = os.path.join(self.outpath, od, key)
+        makedirs(os.path.join(self.outpath, od))
+        url = 'http://s3.amazonaws.com/%s/%s/%s/%s.gz'%(bucket, prefix, od, key)
+        # cached or download
+        if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:
+            print 'tile %s exists, skipping'%(op)
+        else:
+            print 'downloading %s to %s'%(url, op)
+            download_gzip(url, op)
+        # verify
+        if not (os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE):
+            raise Exception('tile does not exist or does not match expected size: %s'%op)
+        
 
 class PlanetBase(object):
     def __init__(self, osmpath=None, grain='hour', changeset_url=None):
@@ -15,7 +87,7 @@ class PlanetBase(object):
 
     def osmosis(self, *args):
         cmd = ['osmosis'] + list(args)
-        print " ".join(cmd)
+        print ' '.join(cmd)
         return subprocess.check_output(
             cmd,
             shell=False,
@@ -24,7 +96,7 @@ class PlanetBase(object):
 
     def osmconvert(self, *args):
         cmd = ['osmconvert'] + list(args)
-        print " ".join(cmd)
+        print ' '.join(cmd)
         return subprocess.check_output(
             cmd,
             shell=False,
@@ -37,13 +109,13 @@ class PlanetBase(object):
             '--out-timestamp'
         )
         if 'invalid' in timestamp:
-            print "no timestamp; falling back to osmconvert --out-statistics"
+            print 'no timestamp; falling back to osmconvert --out-statistics'
             statistics = self.osmconvert(
                 self.osmpath,
                 '--out-statistics'
             )
             timestamp = [
-                i.partition(":")[2].strip() for i in statistics.split("\n")
+                i.partition(':')[2].strip() for i in statistics.split('\n')
                 if i.startswith('timestamp max')
             ][0]
         return timestamp
@@ -71,20 +143,23 @@ class PlanetBase(object):
             args += arg
         self.osmosis(*args)
 
-    def extract_bboxes_csv(self, csvpath):
-        self.extract_bboxes(self._load_bboxes(csvpath))
+    def extract_bbox(self, bbox, workers=1):
+        name, top, left, bottom, right = bbox
+        args = []
+        args += ['--read-pbf', self.osmpath]
+        args += [
+            '--bounding-box',
+            'top=%0.5f'%float(top),
+            'left=%0.5f'%float(left),
+            'bottom=%0.5f'%float(bottom),
+            'right=%0.5f'%float(right),
+            '--write-pbf',
+            '%s.osm.pbf'%name
+        ]
+        self.osmosis(*args)
 
-    def _load_bboxes(self, csvpath):
-        # bbox csv format:
-        # name, top, left, bottom, right
-        if not os.path.exists(csvpath):
-            raise Exception('csvpath does not exist: %s'%csvpath)
-        bboxes = []
-        with open(csvpath) as f:
-            reader = csv.reader(f)
-            for row in reader:
-                bboxes.append(row)
-        return bboxes
+    def extract_bboxes_csv(self, csvpath):
+        self.extract_bboxes(load_bboxes(csvpath))
 
 class Planet(PlanetBase):
     pass
@@ -112,9 +187,9 @@ class PlanetDownloaderS3(PlanetBase):
         objs = self._get_planets(bucket, prefix, match)
         objs = sorted(objs, key=lambda x:x.key)
         for i in objs:
-            print "found planet: s3://%s/%s"%(i.bucket_name, i.key)
+            print 'found planet: s3://%s/%s'%(i.bucket_name, i.key)
         planet = objs[-1]
-        print "downloading: s3://%s/%s to %s"%(planet.bucket_name, planet.key, self.osmpath)
+        print 'downloading: s3://%s/%s to %s'%(planet.bucket_name, planet.key, self.osmpath)
         self._download(planet.bucket_name, planet.key)
 
     def _download(self, bucket_name, key):
@@ -158,10 +233,10 @@ class PlanetUpdaterOsmosis(PlanetBase):
             'workingDirectory=%s'%self.workdir
         )
         with open(configpath, 'w') as f:
-            f.write("""
+            f.write('''
                 baseUrl=%s
                 maxInterval=0
-            """%self.changeset_url)
+            '''%self.changeset_url)
 
     def _initialize_state(self):
         statepath = os.path.join(self.workdir, 'state.txt')
