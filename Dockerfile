@@ -7,16 +7,15 @@ RUN apt-get install \
       python-pip \
       python-boto3 \
       curl \
-      wget \
       osmosis \
       osmctools \
-      parallel \
       awscli \
       software-properties-common \
       -y
 
-WORKDIR /app
 COPY . /app
 RUN pip install /app
 
-CMD [ "planet_update", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
+WORKDIR /data
+
+CMD [ "planet_update", "--overwrite", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
