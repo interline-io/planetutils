@@ -2,7 +2,7 @@
 import argparse
 from planet import *
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('osmpath', help='osm path')
     parser.add_argument('outpath', help='output path')
@@ -17,3 +17,6 @@ if __name__ == '__main__':
         d.download_planet()
     p = PlanetUpdaterOsmosis(args.osmpath)
     p.update_planet(args.outpath)
+
+if __name__ == '__main__':
+    main()
