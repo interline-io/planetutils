@@ -5,7 +5,6 @@ RUN apt-get update -y
 RUN apt-get install \
       python \
       python-pip \
-      python-boto3 \
       curl \
       osmosis \
       osmctools \
@@ -13,9 +12,11 @@ RUN apt-get install \
       software-properties-common \
       -y
 
+WORKDIR /app
 COPY . /app
-RUN pip install /app
+RUN pip install .
+RUN nosetests
 
 WORKDIR /data
 
-CMD [ "planet_update", "--overwrite", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
+CMD [ "planet_update", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
