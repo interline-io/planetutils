@@ -4,6 +4,7 @@ LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.i
 RUN apt-get update -y
 RUN apt-get install \
       python \
+      python-pip \
       python-boto3 \
       curl \
       wget \
@@ -14,8 +15,8 @@ RUN apt-get install \
       software-properties-common \
       -y
 
-COPY scripts /scripts
-
 WORKDIR /app
+COPY . /app
+RUN pip install /app
 
-CMD [ "/usr/bin/python", "/scripts/update_planet.py", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
+CMD [ "planet_update", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
