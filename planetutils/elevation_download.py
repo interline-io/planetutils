@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-from planet import *
+from elevation import *
 
 def main():
     parser = argparse.ArgumentParser()
