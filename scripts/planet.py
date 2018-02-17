@@ -17,14 +17,18 @@ def makedirs(path):
 
 def load_bboxes(csvpath):
     # bbox csv format:
-    # name, top, left, bottom, right
+    # name, left, bottom, right, top
     if not os.path.exists(csvpath):
         raise Exception('csvpath does not exist: %s'%csvpath)
     bboxes = []
     with open(csvpath) as f:
         reader = csv.reader(f)
         for row in reader:
-            bboxes.append(row)
+            name = row[0]
+            left, bottom, right, top = map(float, row[1:])
+            assert top >= bottom
+            assert right >= left
+            bboxes.append([name, left, bottom, right, top])
     return bboxes
     
 def download_gzip(url, path):
@@ -47,37 +51,44 @@ class ElevationDownloader(object):
             self.download_bbox(bbox)
     
     def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='skadi'):
-        # map bbox top, left, bottom, right to min_x, max_x, min_y, max_y
-        name = bbox[0]
-        top, left, bottom, right = map(float, bbox[1:])
+        # map bbox top, left, bottom, right, top to min_x, max_x, min_y, max_y
+        name, left, bottom, right, top = bbox
         min_x = int(math.floor(left))
         max_x = int(math.ceil(right))
         min_y = int(math.floor(bottom))
         max_y = int(math.ceil(top))
+        expect = (max_x - min_x + 1) * (max_y - min_y + 1)
+        found = set()
+        download = set()
         for x in xrange(min_x, max_x):
             for y in xrange(min_y, max_y):
-                self.download_hgt(bucket, prefix, x, y)
+                od, key = self.hgtpath(x, y)
+                op = os.path.join(self.outpath, od, key)
+                if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:
+                    found.add((x,y))
+                else:
+                    download.add((x,y))
+        print "found %s tiles; %s to download"%(len(found), len(download))
+        if len(download) > 100:
+            print "  warning: downloading %s tiles will take an additional %0.2f GiB disk space"%(
+                len(download),
+                (len(download) * self.HGT_SIZE) / (1024.0**3)
+            )
+        for x,y in sorted(download):
+            self.download_hgt(bucket, prefix, x, y)
     
     def hgtpath(self, x, y):
         ns = lambda i:'S%02d'%abs(i) if i < 0 else 'N%02d'%abs(i)
         ew = lambda i:'W%03d'%abs(i) if i < 0 else 'E%03d'%abs(i)
-        key = '%s%s.hgt'%(ns(y), ew(x))
-        return ns(y), key
+        return ns(y), '%s%s.hgt'%(ns(y), ew(x))
 
     def download_hgt(self, bucket, prefix, x, y):
         od, key = self.hgtpath(x, y)
         op = os.path.join(self.outpath, od, key)
         makedirs(os.path.join(self.outpath, od))
         url = 'http://s3.amazonaws.com/%s/%s/%s/%s.gz'%(bucket, prefix, od, key)
-        # cached or download
-        if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:
-            print 'tile %s exists, skipping'%(op)
-        else:
-            print 'downloading %s to %s'%(url, op)
-            download_gzip(url, op)
-        # verify
-        if not (os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE):
-            raise Exception('tile does not exist or does not match expected size: %s'%op)
+        print "downloading %s to %s"%(url, op)
+        download_gzip(url, op)
         
 
 class PlanetBase(object):
@@ -130,13 +141,13 @@ class PlanetBase(object):
         args = []
         args += ['--read-pbf-fast', self.osmpath, 'workers=%s'%int(workers)]
         args += ['--tee', str(len(bboxes))]
-        for name,top,left,bottom,right in bboxes:
+        for name, left, bottom, right, top in bboxes:
             arg = [
                 '--bounding-box',
-                'top=%0.5f'%float(top),
-                'left=%0.5f'%float(left),
-                'bottom=%0.5f'%float(bottom),
-                'right=%0.5f'%float(right),
+                'left=%0.5f'%left,
+                'bottom=%0.5f'%bottom,
+                'right=%0.5f'%right,
+                'top=%0.5f'%top,
                 '--write-pbf',
                 '%s.osm.pbf'%name
             ]
@@ -144,15 +155,15 @@ class PlanetBase(object):
         self.osmosis(*args)
 
     def extract_bbox(self, bbox, workers=1):
-        name, top, left, bottom, right = bbox
+        name, left, bottom, right, top = bbox
         args = []
         args += ['--read-pbf', self.osmpath]
         args += [
             '--bounding-box',
-            'top=%0.5f'%float(top),
             'left=%0.5f'%float(left),
             'bottom=%0.5f'%float(bottom),
             'right=%0.5f'%float(right),
+            'top=%0.5f'%float(top),
             '--write-pbf',
             '%s.osm.pbf'%name
         ]
