@@ -6,7 +6,7 @@ import urllib2
 
 import boto3
 
-from bbox import load_bboxes
+from bbox import validate_bbox
 
 class PlanetBase(object):
     def __init__(self, osmpath=None, grain='hour', changeset_url=None):
@@ -58,7 +58,9 @@ class PlanetBase(object):
         args = []
         args += ['--read-pbf-fast', self.osmpath, 'workers=%s'%int(workers)]
         args += ['--tee', str(len(bboxes))]
-        for name, left, bottom, right, top in bboxes:
+        for name, bbox in bboxes.items():
+            validate_bbox(bbox)
+            left, bottom, right, top = bbox
             arg = [
                 '--bounding-box',
                 'left=%0.5f'%left,
@@ -71,23 +73,8 @@ class PlanetBase(object):
             args += arg
         self.osmosis(*args)
 
-    def extract_bbox(self, bbox, workers=1):
-        name, left, bottom, right, top = bbox
-        args = []
-        args += ['--read-pbf', self.osmpath]
-        args += [
-            '--bounding-box',
-            'left=%0.5f'%float(left),
-            'bottom=%0.5f'%float(bottom),
-            'right=%0.5f'%float(right),
-            'top=%0.5f'%float(top),
-            '--write-pbf',
-            '%s.osm.pbf'%name
-        ]
-        self.osmosis(*args)
-
-    def extract_bboxes_csv(self, csvpath):
-        self.extract_bboxes(load_bboxes(csvpath))
+    def extract_bbox(self, name, bbox, workers=1):
+        return self.extract_bboxes({name: bbox})
 
 class Planet(PlanetBase):
     pass

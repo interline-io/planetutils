@@ -3,7 +3,7 @@ import os
 import subprocess
 import math
 
-from bbox import load_bboxes
+from bbox import validate_bbox
 
 def makedirs(path):
     try:
@@ -20,19 +20,18 @@ def download_gzip(url, path):
 class ElevationDownloader(object):
     HGT_SIZE = (3601 * 3601 * 2)
     
-    def __init__(self, outpath):
+    def __init__(self, outpath='.'):
         self.outpath = outpath
 
-    def download_bboxes_csv(self, csvpath):
-        self.download_bboxes(load_bboxes(csvpath))
+    def download_planet(self):
+        self.download_bbox([-180, -90, 180, 90])
 
     def download_bboxes(self, bboxes):
-        for bbox in bboxes:
+        for name, bbox in bboxes.items():
             self.download_bbox(bbox)
     
     def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='skadi'):
-        # map bbox top, left, bottom, right, top to min_x, max_x, min_y, max_y
-        name, left, bottom, right, top = bbox
+        left, bottom, right, top = validate_bbox(bbox)
         min_x = int(math.floor(left))
         max_x = int(math.ceil(right))
         min_y = int(math.floor(bottom))
