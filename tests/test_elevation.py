@@ -47,14 +47,20 @@ class TestElevationDownloader(unittest.TestCase):
         # correct size
         path = e.hgtpath(-119, 37)
         os.makedirs(os.path.join(d, path[0]))
-        dp = os.path.join(d, *path)
-        with open(dp, 'w') as f:
+        dp1 = os.path.join(d, *path)
+        with open(dp1, 'w') as f:
             f.write('0'*e.HGT_SIZE)
         # incorrect size
         path = e.hgtpath(-119, 36)
         os.makedirs(os.path.join(d, path[0]))
-        dp = os.path.join(d, *path)
-        with open(dp, 'w') as f:
+        dp2 = os.path.join(d, *path)
+        with open(dp2, 'w') as f:
             f.write('0')        
         # expect 154 - 1
         self.download_bbox(e, e.download_bbox, [CA], 154-1)
+        # cleanup
+        for i in [dp1, dp2]:
+            os.unlink(i)
+        for i in [dp1, dp2]:
+            os.rmdir(os.path.dirname(i))
+        os.rmdir(d)
