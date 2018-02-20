@@ -80,15 +80,18 @@ class Planet(PlanetBase):
     pass
 
 class PlanetDownloaderHttp(PlanetBase):
+    def _download(self, url, outpath):
+        subprocess.check_output([
+            'curl',
+            '-o', outpath,
+            url
+        ])
+        
     def download_planet(self, url=None):
         if os.path.exists(self.osmpath):
             raise Exception('planet file exists: %s'%self.osmpath)
         url = url or 'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf'
-        subprocess.check_output([
-            'curl',
-            '-o', self.osmpath,
-            url
-        ])
+        self._download(url, self.osmpath)
 
 class PlanetDownloaderS3(PlanetBase):
     def download_planet(self):

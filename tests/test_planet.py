@@ -1,4 +1,5 @@
 import tempfile
+import types
 import os
 import unittest
 import planetutils.planet as planet
@@ -38,6 +39,17 @@ class TestPlanetBase(unittest.TestCase):
         self.assertEquals(p2.get_timestamp(), TESTFILE_TIMESTAMP)
         os.unlink(outfile)
         os.rmdir(d)
+
+class TestPlanetDownloaderHttp(unittest.TestCase):
+    def test_download_planet(self):
+        p = planet.PlanetDownloaderHttp('test.osm.pbf')
+        # mock curl
+        COUNT = []
+        def c(self, url, outpath):
+            COUNT.append([url,outpath])
+        p._download = types.MethodType(c, planet.PlanetDownloaderHttp)
+        p.download_planet()
+        self.assertEquals(COUNT[0], ['https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf', 'test.osm.pbf'])
         
 if __name__ == '__main__':
     unittest.main()
