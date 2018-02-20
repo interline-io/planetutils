@@ -30,23 +30,30 @@ class ElevationDownloader(object):
         for name, bbox in bboxes.items():
             self.download_bbox(bbox)
     
-    def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='skadi'):
+    def get_bbox_tiles(self, bbox):
         left, bottom, right, top = validate_bbox(bbox)
         min_x = int(math.floor(left))
         max_x = int(math.ceil(right))
         min_y = int(math.floor(bottom))
         max_y = int(math.ceil(top))
         expect = (max_x - min_x + 1) * (max_y - min_y + 1)
-        found = set()
-        download = set()
+        tiles = set()
         for x in xrange(min_x, max_x):
             for y in xrange(min_y, max_y):
-                od, key = self.hgtpath(x, y)
-                op = os.path.join(self.outpath, od, key)
-                if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:
-                    found.add((x,y))
-                else:
-                    download.add((x,y))
+                tiles.add((x,y))
+        return tiles
+    
+    def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='skadi'):
+        tiles = self.get_bbox_tiles(bbox)
+        found = set()
+        download = set()
+        for x,y in tiles:
+            od, key = self.hgtpath(x, y)
+            op = os.path.join(self.outpath, od, key)
+            if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:
+                found.add((x,y))
+            else:
+                download.add((x,y))
         print "found %s tiles; %s to download"%(len(found), len(download))
         if len(download) > 100:
             print "  warning: downloading %s tiles will take an additional %0.2f GiB disk space"%(

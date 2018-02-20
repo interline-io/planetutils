@@ -54,7 +54,7 @@ class PlanetBase(object):
     def update_planet(self, outpath, grain='hour', changeset_url=None):
         raise NotImplementedError
 
-    def extract_bboxes(self, bboxes, workers=1):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
         args = []
         args += ['--read-pbf-fast', self.osmpath, 'workers=%s'%int(workers)]
         args += ['--tee', str(len(bboxes))]
@@ -68,13 +68,13 @@ class PlanetBase(object):
                 'right=%0.5f'%right,
                 'top=%0.5f'%top,
                 '--write-pbf',
-                '%s.osm.pbf'%name
+                os.path.join(outpath, '%s.osm.pbf'%name)
             ]
             args += arg
         self.osmosis(*args)
 
-    def extract_bbox(self, name, bbox, workers=1):
-        return self.extract_bboxes({name: bbox})
+    def extract_bbox(self, name, bbox, workers=1, outpath='.'):
+        return self.extract_bboxes({name: bbox}, outpath=outpath, workers=workers)
 
 class Planet(PlanetBase):
     pass
