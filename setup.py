@@ -19,6 +19,7 @@ setup(name='interline-planetutils',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=['boto3'],
     tests_require=['nose'],
+    test_suite = 'nose.collector',
     entry_points={
         'console_scripts': [
             'planet_update=planetutils.planet_update:main',
