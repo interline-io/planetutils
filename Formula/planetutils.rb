@@ -73,6 +73,7 @@ class Planetutils < Formula
   end
 
   test do
+    # TODO: verify a command can work, like:
     # output = shell_output("#{bin}/valhalla_service", 1)
     # assert_match "Usage: #{bin}/valhalla_service config/file.json", output
     system "true"
