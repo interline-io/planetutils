@@ -7,7 +7,7 @@ jobs:
       - checkout
       - run:
           name: Installing OSM dependencies
-          command: apt-get install osmosis osmctools
+          command: sudo apt-get install osmosis osmctools
       - run:
           name: Installing Python package and dependencies
           command: pip install --user .
