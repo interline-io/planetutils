@@ -5,5 +5,9 @@ jobs:
       - image: circleci/python:2.7
     steps:
       - checkout
-      - run: pip install .
-      - run: tox
+      - run: pip install --user .
+      - run:
+        name: Running tests
+        command: tox
+        environment:
+          PATH: "$PATH;~/.local/bin"
