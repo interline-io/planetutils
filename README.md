@@ -39,14 +39,21 @@ If you want to install and use the Python package directly, you'll need to provi
 - [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis)
 - [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/)
 
+Then clone this repo, run the tests, and install the Python package:
+
 ```sh
 git clone https://github.com/interline-io/planetutils.git
-tox
+nosetests
 pip install .
 ```
 
 ## Usage
 
+### planet_update
+
+### planet_extract
+
+### elevation_download
 ***
 
 ```sh

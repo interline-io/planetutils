@@ -13,4 +13,4 @@ jobs:
           command: pip install --user .
       - run:
           name: Running tests
-          command: ~/.local/bin/tox
+          command: ~/.local/bin/nosetests
