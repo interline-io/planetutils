@@ -10,4 +10,4 @@ jobs:
         name: Running tests
         command: tox
         environment:
-          PATH: "$PATH;~/.local/bin"
+          PATH: "$PATH:~/.local/bin"
