@@ -17,7 +17,7 @@ setup(name='interline-planetutils',
     author_email='ian@interline.io',
     license='MIT',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['boto3', 'nose'],
+    install_requires=['boto3', 'tox'],
     entry_points={
         'console_scripts': [
             'planet_update=planetutils.planet_update:main',

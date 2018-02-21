@@ -15,7 +15,7 @@ RUN apt-get install \
 WORKDIR /app
 COPY . /app
 RUN pip install .
-RUN nosetests
+RUN tox
 
 WORKDIR /data
 
