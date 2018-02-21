@@ -3,13 +3,16 @@ jobs:
   build:
     docker:
       - image: circleci/python:2.7.14-stretch
+        environment:
+          PATH: "$PATH:$HOME/.local/bin"
     steps:
       - checkout
       - run:
-          name: Installing Python package and dependencies
-          command: pip install --user .
+        name: Installing OSM dependencies
+        command: apt-get install osmosis osmctools
       - run:
-          name: Running tests
-          command: tox
-          environment:
-            PATH: "$PATH:~/.local/bin"
+        name: Installing Python package and dependencies
+        command: pip install --user .
+      - run:
+        name: Running tests
+        command: tox
