@@ -13,6 +13,4 @@ jobs:
           command: pip install --user .
       - run:
           name: Running tests
-          environment:
-            PATH: "$PATH:$HOME/.local/bin"
-          command: tox
+          command: ~/.local/bin/tox
