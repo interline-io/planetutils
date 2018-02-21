@@ -9,10 +9,10 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='interline-planetutils',
-    version='0.1',
-    description='Interline Planet Utilities',
+    version='0.1.3',
+    description='Interline PlanetUtils',
     long_description=long_description,
-    url='https://github.com/interline-io/osm-planet-update',
+    url='https://github.com/interline-io/planetutils',
     author='Ian Rees',
     author_email='ian@interline.io',
     license='MIT',
