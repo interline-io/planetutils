@@ -1,0 +1,9 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/python:2.7-stretch-browsers
+    steps:
+      - checkout
+      - run: pip install .
+      - run: tox
