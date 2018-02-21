@@ -2,10 +2,12 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/python:2.7
+      - image: circleci/python:2.7.14-stretch
     steps:
       - checkout
-      - run: pip install --user .
+      - run:
+          name: Installing Python package and dependencies
+          command: pip install --user .
       - run:
           name: Running tests
           command: tox
