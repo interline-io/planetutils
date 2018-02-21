@@ -7,7 +7,7 @@ jobs:
       - checkout
       - run: pip install --user .
       - run:
-        name: Running tests
-        command: tox
-        environment:
-          PATH: "$PATH:~/.local/bin"
+          name: Running tests
+          command: tox
+          environment:
+            PATH: "$PATH:~/.local/bin"
