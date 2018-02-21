@@ -3,8 +3,6 @@ jobs:
   build:
     docker:
       - image: circleci/python:2.7.14-stretch
-    environment:
-      - PATH: "$PATH:$HOME/.local/bin"
     steps:
       - checkout
       - run:
@@ -16,3 +14,5 @@ jobs:
       - run:
           name: Running tests
           command: tox
+          environment:
+            - PATH: "$PATH:$HOME/.local/bin"
