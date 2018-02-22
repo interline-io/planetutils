@@ -8,7 +8,7 @@ def main():
     parser.add_argument('osmpath', help='Name or path to OSM planet file. Use planet_update if you do not have a copy locally.')
     parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
     parser.add_argument('--name', help='Name to give to extract file.')
-    parser.add_argument('--bbox', help='Bounding box for extract Format for coordinates: left,bottom,right,top')
+    parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     args = parser.parse_args()
     p = Planet(args.osmpath)
     if args.csv:
