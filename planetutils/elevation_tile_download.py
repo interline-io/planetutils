@@ -6,9 +6,9 @@ from bbox import load_bboxes_csv, bbox_string
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('outpath', help='output path')
-    parser.add_argument('--csv', help='csv path with bbox definitions')
-    parser.add_argument('--bbox', help='bbox as (left,bottom,right,top)')
+    parser.add_argument('outpath', help='Output path for elevation tiles.')
+    parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
+    parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     args = parser.parse_args()
     p = ElevationDownloader(args.outpath)
     if args.csv:

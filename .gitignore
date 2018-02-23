@@ -60,3 +60,6 @@ target/
 # Virtual Environment
 venv/
 data
+
+# PyTest
+.pytest_cache/
