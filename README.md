@@ -196,6 +196,8 @@ san-francisco,-122.737,37.449,-122.011,37.955
 dar-es-salaam,38.894,-7.120,39.661,-6.502
 ```
 
+To determine a bounding box, try the tool at http://bboxfinder.com/
+
 ## Support
 
 To report a bug, please [open an issue](https://github.com/interline-io/planetutils).
