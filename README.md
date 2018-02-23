@@ -14,7 +14,7 @@
 - [Features](#features)
 - [Installation](#installation)
   * [Using Docker container](#using-docker-container)
-  * [Using Homebrew on Mac OS***](#using-homebrew-on-mac-os)
+  * [Using Homebrew on Mac OS](#using-homebrew-on-mac-os)
   * [Using Python package](#using-python-package)
 - [Usage](#usage)
   * [osm_planet_update](#osm_planet_update)
