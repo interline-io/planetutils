@@ -9,20 +9,22 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='interline-planetutils',
-    version='0.1',
-    description='Interline Planet Utilities',
+    version='0.2.0',
+    description='Interline PlanetUtils',
     long_description=long_description,
-    url='https://github.com/interline-io/osm-planet-update',
+    url='https://github.com/interline-io/planetutils',
     author='Ian Rees',
     author_email='ian@interline.io',
     license='MIT',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['boto3', 'nose'],
+    install_requires=['boto3'],
+    tests_require=['nose'],
+    test_suite = 'nose.collector',
     entry_points={
         'console_scripts': [
-            'planet_update=planetutils.planet_update:main',
-            'planet_extract=planetutils.planet_extract:main',
-            'elevation_download=planetutils.elevation_download:main'
+            'osm_planet_update=planetutils.osm_planet_update:main',
+            'osm_planet_extract=planetutils.osm_planet_extract:main',
+            'elevation_tile_download=planetutils.elevation_download:main'
         ],
     },
     classifiers=[

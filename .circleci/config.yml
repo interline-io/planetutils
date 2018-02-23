@@ -1,0 +1,16 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/python:2.7.14-stretch
+    steps:
+      - checkout
+      - run:
+          name: Installing OSM dependencies
+          command: sudo apt-get install osmosis osmctools
+      - run:
+          name: Installing Python package and dependencies
+          command: pip install --user .
+      - run:
+          name: Running tests
+          command: python setup.py test

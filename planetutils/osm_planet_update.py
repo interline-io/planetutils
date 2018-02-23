@@ -4,9 +4,9 @@ from planet import *
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('osmpath', help='osm path')
-    parser.add_argument('outpath', help='output path')
-    parser.add_argument('--s3', action='store_true', help='download using s3 from osm-pds')
+    parser.add_argument('osmpath', help='Name or path to existing OSM planet file. Will be created and downloaded, if it does not exist.')
+    parser.add_argument('outpath', help='Name or path to where updated output file should be placed.')
+    parser.add_argument('--s3', action='store_true', help='Download using S3 client from AWS Public Datasets program. AWS credentials required.')
     args = parser.parse_args()
     if not os.path.exists(args.osmpath):
         print "planet does not exist; downloading"
