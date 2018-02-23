@@ -84,7 +84,7 @@ Update a local OSM planet. For example:
 
 - Using Docker:
     ```sh
-    docker run --rm -v data:/data -t interline/planetutils:release-v0.2.0 osm_planet_update planet-latest.osm.pbf planet-new.osm.pbf
+    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 osm_planet_update planet-latest.osm.pbf planet-new.osm.pbf
     ````
 - Using Homebrew or Python:
     ```sh
@@ -114,7 +114,7 @@ To create a single extract:
 
 - Using Docker:
     ```sh
-    docker run --rm -v data:/data -t interline/planetutils:release-v0.2.0 osm_planet_extract /data/osm_extracts --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco
+    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 osm_planet_extract /data/osm_extracts --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco
     ````
 - Using Homebrew or Python:
     ```sh
@@ -125,7 +125,7 @@ To specify more than one bounding box of tiles to download, list the bounding bo
 
 - Using Docker:
     ```sh
-    docker run --rm -v data:/data -t interline/planetutils:release-v0.2.0 osm_planet_extract /data/osm_extracts --csv=/data/bboxes.csv
+    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 osm_planet_extract /data/osm_extracts --csv=/data/bboxes.csv
     ````
 - Using Homebrew or Python:
     ```sh
@@ -146,7 +146,7 @@ To download the entire planet of tiles (__which will require about 1.6Tb of spac
 
 - Using Docker:
     ```sh
-    docker run --rm -v data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation
+    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation
     ````
 - Using Homebrew or Python:
     ```sh
@@ -157,7 +157,7 @@ To download tiles to cover a single bounding box:
 
 - Using Docker:
     ```sh
-    docker run --rm -v data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation --bbox=-122.737,37.449,-122.011,37.955
+    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation --bbox=-122.737,37.449,-122.011,37.955
     ````
 - Using Homebrew or Python:
     ```sh
@@ -168,7 +168,7 @@ To specify more than one bounding box of tiles to download, list the bounding bo
 
 - Using Docker:
     ```sh
-    docker run --rm -v data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation --csv=/data/bboxes.csv
+    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation --csv=/data/bboxes.csv
     ````
 - Using Homebrew or Python:
     ```sh
