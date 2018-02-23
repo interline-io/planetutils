@@ -14,8 +14,8 @@ RUN apt-get install \
 
 WORKDIR /app
 COPY . /app
+RUN python setup.py test
 RUN pip install .
-RUN nosetests
 
 WORKDIR /data
 
