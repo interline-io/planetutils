@@ -46,8 +46,15 @@ PlanetUtils is packaged for use as a:
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.2.0
+docker pull interline/planetutils:release-v0.2.2
 ```
+
+Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
+
+- Example of using `docker run` with the `data` directory mounted as `/data`:
+    ```sh
+    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.2 <command>
+    ````
 
 ### Using Homebrew on Mac OS
 
@@ -82,10 +89,6 @@ PlanetUtils supplies the following command-line utilities:
 
 Update a local OSM planet. For example:
 
-- Using Docker:
-    ```sh
-    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 osm_planet_update planet-latest.osm.pbf planet-new.osm.pbf
-    ````
 - Using Homebrew or Python:
     ```sh
     osm_planet_update planet-latest.osm.pbf planet-new.osm.pbf
@@ -112,24 +115,14 @@ Cut up an OSM planet file into one or more extracts, defined by bounding boxes. 
 
 To create a single extract:
 
-- Using Docker:
     ```sh
-    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 osm_planet_extract /data/osm_extracts --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco
-    ````
-- Using Homebrew or Python:
-    ```sh
-    osm_planet_extract data/osm_extracts --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco
+    osm_planet_extract --outpath=data/osm_extracts --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco planet-latest.osm.pbf
     ```
 
 To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file](#bounding-box). For example:
 
-- Using Docker:
     ```sh
-    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 osm_planet_extract /data/osm_extracts --csv=/data/bboxes.csv
-    ````
-- Using Homebrew or Python:
-    ```sh
-    osm_planet_extract data/osm_extracts --csv=data/bboxes.csv
+    osm_planet_extract --outpath=data/osm_extracts --csv=data/bboxes.csv planet-latest.osm.pbf
     ```
 
 For complete help on command-line arguments:
@@ -144,35 +137,20 @@ Download elevation tiles from the [Terrain Tiles in the AWS Public Datasets prog
 
 To download the entire planet of tiles (__which will require about 1.6Tb of space!__):
 
-- Using Docker:
     ```sh
-    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation
-    ````
-- Using Homebrew or Python:
-    ```sh
-    elevation_tile_download data/elevation
+    elevation_tile_download --outpath=data/elevation
     ```
 
 To download tiles to cover a single bounding box:
 
-- Using Docker:
     ```sh
-    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation --bbox=-122.737,37.449,-122.011,37.955
-    ````
-- Using Homebrew or Python:
-    ```sh
-    elevation_tile_download data/elevation --bbox=-122.737,37.449,-122.011,37.955
+    elevation_tile_download --outpath=data/elevation --bbox=-122.737,37.449,-122.011,37.955
     ```
 
 To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file](#bounding-box). For example:
 
-- Using Docker:
     ```sh
-    docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.0 elevation_tile_download /data/elevation --csv=/data/bboxes.csv
-    ````
-- Using Homebrew or Python:
-    ```sh
-    elevation_tile_download data/elevation --csv=data/bboxes.csv
+    elevation_tile_download --outpath=data/elevation --csv=data/bboxes.csv
     ```
 
 For complete help on command-line arguments:
