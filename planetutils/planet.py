@@ -9,17 +9,17 @@ import boto3
 from bbox import validate_bbox
 
 class PlanetBase(object):
-    def __init__(self, osmpath=None, grain='hour', changeset_url=None):
+    def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):
         self.osmpath = osmpath
-        self.workdir = '.'
+        d, p = os.path.split(osmpath)
+        self.osmosis_workdir = osmosis_workdir or os.path.join(d, '%s.workdir'%p)
 
     def osmosis(self, *args):
         cmd = ['osmosis'] + list(args)
         print ' '.join(cmd)
         return subprocess.check_output(
             cmd,
-            shell=False,
-            cwd=self.workdir
+            shell=False
         )
 
     def osmconvert(self, *args):
@@ -27,8 +27,7 @@ class PlanetBase(object):
         print ' '.join(cmd)
         return subprocess.check_output(
             cmd,
-            shell=False,
-            cwd=self.workdir
+            shell=False
         )
 
     def get_timestamp(self):
@@ -138,17 +137,18 @@ class PlanetUpdaterOsmosis(PlanetBase):
         self._apply_changeset(outpath)
 
     def _initialize(self):
-        configpath = os.path.join(self.workdir, 'configuration.txt')
+        configpath = os.path.join(self.osmosis_workdir, 'configuration.txt')
         if os.path.exists(configpath):
             return
+        if os.path.exists(self.osmosis_workdir) and not os.path.isdir(self.osmosis_workdir):
+            raise Exception('workdir exists and is not a directory: %s'%self.osmosis_workdir) 
         try:
-            os.makedirs(self.workdir)
+            os.makedirs(self.osmosis_workdir)
         except OSError, e:
-            # print 'directory already exists: %s'%self.workdir
             pass
         self.osmosis(
             '--read-replication-interval-init',
-            'workingDirectory=%s'%self.workdir
+            'workingDirectory=%s'%self.osmosis_workdir
         )
         with open(configpath, 'w') as f:
             f.write('''
@@ -157,7 +157,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
             '''%self.changeset_url)
 
     def _initialize_state(self):
-        statepath = os.path.join(self.workdir, 'state.txt')
+        statepath = os.path.join(self.osmosis_workdir, 'state.txt')
         if os.path.exists(statepath):
             return
         timestamp = self.get_timestamp()
@@ -169,16 +169,16 @@ class PlanetUpdaterOsmosis(PlanetBase):
     def _get_changeset(self):
         self.osmosis(
             '--read-replication-interval',
-            'workingDirectory=%s'%self.workdir,
+            'workingDirectory=%s'%self.osmosis_workdir,
             '--simplify-change',
             '--write-xml-change',
-            'changeset.osm.gz'
+            os.path.join(self.osmosis_workdir, 'changeset.osm.gz')
         )
 
     def _apply_changeset(self, outpath):
         self.osmosis(
             '--read-xml-change',
-            'changeset.osm.gz',
+            os.path.join(self.osmosis_workdir, 'changeset.osm.gz'),
             '--read-pbf',
             self.osmpath,
             '--apply-change',
