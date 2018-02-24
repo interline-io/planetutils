@@ -19,4 +19,4 @@ RUN pip install .
 
 WORKDIR /data
 
-CMD [ "planet_update", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
+CMD [ "osm_planet_update", "planet-latest.osm.pbf", "planet-new.osm.pbf" ]
