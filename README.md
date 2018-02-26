@@ -91,17 +91,15 @@ PlanetUtils supplies the following command-line utilities:
 Update a local OSM planet. For example:
 
 ```sh
-osm_planet_update planet-latest.osm.pbf planet-new.osm.pbf
+osm_planet_update planet-recent.osm.pbf planet-with-updates.osm.pbf
 ```
 
-If `planet-latest.osm.pbf` does not exist, it will be downloaded, before applying updates.
-
-By default, files are downloaded from planet.openstreetmap.org. Amazon Web Services also provides OSM planets through its Public Datasets program. To instead download the planet from AWS:
+If `planet-recent.osm.pbf` does not exist locally, the most recent planet file will be downloaded, before applying hourly updates to it. (Note: This download is nearly 40Gb.) By default, files are downloaded from planet.openstreetmap.org. Amazon Web Services also provides [OSM planets through its Public Datasets program](https://aws.amazon.com/public-datasets/osm/). To instead download the planet file from AWS:
 
 1. Make sure you have your [AWS credentials configured locally](http://boto3.readthedocs.io/en/latest/guide/configuration.html).
 2. Append the `--s3` flag.
 
-Note that an entire OSM planet may be upwards of 40Gb in size!
+Note that an entire OSM planet may be upwards of 40Gb in size! In other words, you should have ~80Gb free disk space before running this command.
 
 For complete help on command-line arguments:
 
