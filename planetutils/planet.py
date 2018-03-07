@@ -85,7 +85,7 @@ class PlanetDownloaderHttp(PlanetBase):
             '-o', outpath,
             url
         ])
-        
+
     def download_planet(self, url=None):
         if os.path.exists(self.osmpath):
             raise Exception('planet file exists: %s'%self.osmpath)
@@ -130,7 +130,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None):
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
-        self.changeset_url = changeset_url or 'http://planet.openstreetmap.org/replication/%s'%grain
+        self.changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain
         self._initialize()
         self._initialize_state()
         self._get_changeset()
@@ -141,7 +141,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
         if os.path.exists(configpath):
             return
         if os.path.exists(self.osmosis_workdir) and not os.path.isdir(self.osmosis_workdir):
-            raise Exception('workdir exists and is not a directory: %s'%self.osmosis_workdir) 
+            raise Exception('workdir exists and is not a directory: %s'%self.osmosis_workdir)
         try:
             os.makedirs(self.osmosis_workdir)
         except OSError, e:
