@@ -25,7 +25,9 @@ setup(name='interline-planetutils',
             'osm_planet_update=planetutils.osm_planet_update:main',
             'osm_planet_extract=planetutils.osm_planet_extract:main',
             'elevation_tile_download=planetutils.elevation_tile_download:main',
-            'valhalla_tilepack_download=planetutils.tilepack_download:main'
+            'valhalla_tilepack_download=planetutils.tilepack_download:main',
+            'valhalla_tilepack_list=planetutils.tilepack_list:main'
+
         ],
     },
     classifiers=[

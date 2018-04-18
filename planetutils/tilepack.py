@@ -1,6 +1,8 @@
 import urllib
 import urlparse
 import subprocess
+import json
+import urllib2
 
 class Tilepack(object):
     HOST = 'https://app.interline.io'
@@ -28,4 +30,37 @@ class Tilepack(object):
             print "Error downloading: %s"%err.split("curl:")[-1]
         else:
             print "Done"
-            
+    
+    def list(self):
+        url = "%s/valhalla_planet_tilepacks.json"%(self.HOST)
+        contents = urllib2.urlopen(url).read()
+        tilepacks = json.loads(contents).get('data', [])
+        tilepacks = sorted(tilepacks, key=lambda x:int(x.get('id')))
+        for tilepack in tilepacks:
+            a = tilepack.get('attributes', {})
+            if a.get('bucket_provider') == 'gcp':
+                bucket = 'gs://%s/%s'%(a['bucket_name'], a['bucket_key'])
+            elif a.get('bucket_provider') == 's3':
+                bucket = 's3://%s/%s'%(a['bucket_name'], a['bucket_key'])
+            print """
+Tilepack ID: %s
+    Timestamp: %s
+    Filename: %s
+    Storage provider: %s
+    Data sources: %s
+    URL: %s
+    Versions:
+        valhalla: %s
+        planetutils: %s
+        tilepack_cutter: %s
+            """%(
+                tilepack['id'],
+                a['osm_planet_datetime'],
+                a['bucket_key'],
+                a['bucket_provider'],
+                ", ".join(a.get('data_contents', [])),
+                tilepack.get('links',{}).get('self'),
+                a['valhalla_version'],
+                a['interline_planetutils_version'],
+                a['interline_valhalla_tile_cutter_version']
+            )
