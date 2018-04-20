@@ -20,6 +20,8 @@
   * [osm_planet_update](#osm_planet_update)
   * [osm_planet_extract](#osm_planet_extract)
   * [elevation_tile_download](#elevation_tile_download)
+  * [valhalla_tilepack_list](#valhalla_tilepack_list)
+  * [valhalla_tilepack_download](#valhalla_tilepack_download)
   * [Bounding box CSV file format](#bounding-box-csv-file-format)
 - [Support](#support)
 
@@ -47,7 +49,7 @@ PlanetUtils is packaged for use as a:
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.2.4
+docker pull interline/planetutils:release-v0.2.6
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -55,7 +57,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.4 <command>
+docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.6 <command>
 ```
 
 ### Using Homebrew on Mac OS
@@ -156,6 +158,22 @@ For complete help on command-line arguments:
 
 ```sh
 elevation_tile_download -h
+```
+
+### valhalla_tilepack_list
+
+Use [Valhalla Tilepacks from Interline](https://www.interline.io/valhalla/tilepacks/) to power your own instances of the [Valhalla routing engine](https://www.interline.io/valhalla/). Anyone can list available planet tilepacks. A subscription and an API key are required to [download tilepacks](#valhalla_tilepack_download).
+
+To list all available planet tilepacks:
+
+```sh
+valhalla_tilepack_list
+```
+
+For complete help on command-line arguments:
+
+```sh
+valhalla_tilepack_list -h
 ```
 
 ### valhalla_tilepack_download
