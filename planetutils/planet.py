@@ -36,7 +36,6 @@ class PlanetBase(object):
             '--out-timestamp'
         )
         if 'invalid' in timestamp:
-            print 'no timestamp; falling back to osmconvert --out-statistics'
             statistics = self.osmconvert(
                 self.osmpath,
                 '--out-statistics'
@@ -45,7 +44,7 @@ class PlanetBase(object):
                 i.partition(':')[2].strip() for i in statistics.split('\n')
                 if i.startswith('timestamp max')
             ][0]
-        return timestamp
+        return timestamp.strip()
 
     def download_planet(self):
         raise NotImplementedError
