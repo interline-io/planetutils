@@ -47,7 +47,7 @@ class PlanetBase(object):
                 i.partition(':')[2].strip() for i in statistics.split('\n')
                 if i.startswith('timestamp max')
             ][0]
-        return timestamp
+        return timestamp.strip()
 
     def download_planet(self):
         raise NotImplementedError

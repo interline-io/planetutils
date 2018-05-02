@@ -4,6 +4,7 @@ import unittest
 import planetutils.bbox as bbox
 
 CA = [-126.38,32.15,-113.53,42.24]
+TESTGEOJSON = os.path.join('.','examples','test.geojson')
 
 class TestValidateBbox(unittest.TestCase):
     def test_bounds(self):
@@ -39,6 +40,17 @@ class TestBboxString(unittest.TestCase):
     
     def test_validates(self):
         self.assertRaises(AssertionError, bbox.bbox_string, ('10,-10,20,-20'))
+
+class TestLoadBboxGeojson(unittest.TestCase):
+    def test_load(self):
+        bboxes = bbox.load_bboxes_geojson(TESTGEOJSON)
+        union = (-122.42400169372557, 37.7860125252054, -122.40559101104735, 37.7985943621788)
+        pentagon = (-122.39975452423094, 37.78370618798191, -122.38949775695801, 37.791879793952084)
+        print bboxes
+        for a,b in zip(bboxes['union'], union):
+            self.assertAlmostEqual(a,b)
+        for a,b in zip(bboxes['pentagon'], pentagon):
+            self.assertAlmostEqual(a,b)
 
 if __name__ == '__main__':
     unittest.main()
