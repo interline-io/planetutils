@@ -4,6 +4,8 @@ import subprocess
 import json
 import urllib2
 
+import log
+
 class Tilepack(object):
     HOST = 'https://app.interline.io'
     def download(self, outpath, version='latest', api_token=None, compressed=False):
@@ -22,14 +24,14 @@ class Tilepack(object):
         args = ['curl', '-L', '--fail', '-o', outpath, url]
         if not compressed:
             args.append('--compressed')
-        print "Downloading to %s"%outpath
+        log.info("Downloading to %s"%outpath)
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         e = p.wait()
         if e != 0:
-            print "Error downloading: %s"%err.split("curl:")[-1]
+            raise Exception("Error downloading: %s"%err.split("curl:")[-1])
         else:
-            print "Done"
+            log.info("Done")
     
     def list(self):
         url = "%s/valhalla_planet_tilepacks.json"%(self.HOST)
@@ -42,7 +44,7 @@ class Tilepack(object):
                 bucket = 'gs://%s/%s'%(a['bucket_name'], a['bucket_key'])
             elif a.get('bucket_provider') == 's3':
                 bucket = 's3://%s/%s'%(a['bucket_name'], a['bucket_key'])
-            print """
+            log.info("""
 Tilepack ID: %s
     Timestamp: %s
     Filename: %s
@@ -63,4 +65,4 @@ Tilepack ID: %s
                 a['valhalla_version'],
                 a['interline_planetutils_version'],
                 a['interline_valhalla_tile_cutter_version']
-            )
+            ))

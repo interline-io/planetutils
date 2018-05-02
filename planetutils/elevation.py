@@ -3,6 +3,7 @@ import os
 import subprocess
 import math
 
+import log
 from bbox import validate_bbox
 
 def makedirs(path):
@@ -54,12 +55,12 @@ class ElevationDownloader(object):
                 found.add((x,y))
             else:
                 download.add((x,y))
-        print "found %s tiles; %s to download"%(len(found), len(download))
+        log.info("found %s tiles; %s to download"%(len(found), len(download)))
         if len(download) > 100:
-            print "  warning: downloading %s tiles will take an additional %0.2f GiB disk space"%(
+            log.warning("  warning: downloading %s tiles will take an additional %0.2f GiB disk space"%(
                 len(download),
                 (len(download) * self.HGT_SIZE) / (1024.0**3)
-            )
+            ))
         for x,y in sorted(download):
             self.download_hgt(bucket, prefix, x, y)
     
@@ -73,6 +74,6 @@ class ElevationDownloader(object):
         op = os.path.join(self.outpath, od, key)
         makedirs(os.path.join(self.outpath, od))
         url = 'http://s3.amazonaws.com/%s/%s/%s/%s.gz'%(bucket, prefix, od, key)
-        print "downloading %s to %s"%(url, op)
+        log.info("downloading %s to %s"%(url, op))
         download_gzip(url, op)
         

@@ -2,6 +2,7 @@
 import os
 import argparse
 
+import log
 import tilepack
 from bbox import bbox_string, load_bboxes_csv
 
@@ -16,12 +17,12 @@ def main():
     outpath = args.outpath
     if args.compressed:
         if not (outpath.endswith('.tar') or outpath.endswith('.tgz')):
-            print "Warning: compressed output path %s does not in end in .tar.gz or .tgz"%outpath
+            log.warning("Warning: compressed output path %s does not in end in .tar.gz or .tgz"%outpath)
     else:
         if not outpath.endswith('.tar'):
-            print "Warning: decompressed output path %s does not end in .tar"%outpath
+            log.warning("Warning: decompressed output path %s does not end in .tar"%outpath)
     if os.path.exists(outpath):
-        print "Warning: output path %s already exists."%outpath
+        log.warning("Warning: output path %s already exists."%outpath)
 
     tp = tilepack.Tilepack()
     tp.download(

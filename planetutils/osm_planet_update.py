@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import argparse
+
+import log
 from planet import *
 
 def main():
@@ -10,7 +12,7 @@ def main():
     parser.add_argument('--workdir', help="Osmosis replication workingDirectory.", default='.')
     args = parser.parse_args()
     if not os.path.exists(args.osmpath):
-        print "planet does not exist; downloading"
+        log.info("planet does not exist; downloading")
         if args.s3:
             d = PlanetDownloaderS3(args.osmpath)
         else:
