@@ -8,7 +8,6 @@ import boto3
 
 import log
 from bbox import validate_bbox
-log.set_verbose()
 
 class PlanetBase(object):
     def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):

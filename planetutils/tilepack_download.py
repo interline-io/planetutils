@@ -12,7 +12,11 @@ def main():
     parser.add_argument('--outpath', help='Output path for Valhalla Tilepack; default is tiles.tar', default='tiles.tar')
     parser.add_argument('--api-token', help='Interline Auth Token; default is read from $INTERLINE_API_TOKEN')
     parser.add_argument('--compressed', help='Do not decompress Tilepack', action='store_true')
+    parser.add_argument('--verbose', help="Verbose output", action='store_true')
     args = parser.parse_args()
+
+    if args.verbose:
+        log.set_verbose()
 
     outpath = args.outpath
     if args.compressed:

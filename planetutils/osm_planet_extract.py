@@ -12,7 +12,12 @@ def main():
     parser.add_argument('--geojson', help='Path to GeoJSON file: bbox for each feature is extracted.')
     parser.add_argument('--name', help='Name to give to extract file.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
+    parser.add_argument('--verbose', help="Verbose output", action='store_true')
     args = parser.parse_args()
+
+    if args.verbose:
+        log.set_verbose()
+
     p = Planet(args.osmpath)
 
     bboxes = {}

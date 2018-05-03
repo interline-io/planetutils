@@ -11,6 +11,8 @@ def set_verbose():
 def set_default():
     logger.setLevel(logging.INFO)
 
+set_default()
+
 info = logger.info
 debug = logger.debug
 warning = logger.warning

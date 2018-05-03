@@ -25,6 +25,7 @@ class Tilepack(object):
         if not compressed:
             args.append('--compressed')
         log.info("Downloading to %s"%outpath)
+        log.debug(' '.join(args))
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         e = p.wait()
@@ -44,7 +45,7 @@ class Tilepack(object):
                 bucket = 'gs://%s/%s'%(a['bucket_name'], a['bucket_key'])
             elif a.get('bucket_provider') == 's3':
                 bucket = 's3://%s/%s'%(a['bucket_name'], a['bucket_key'])
-            log.info("""
+            print("""
 Tilepack ID: %s
     Timestamp: %s
     Filename: %s
