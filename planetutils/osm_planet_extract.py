@@ -24,7 +24,6 @@ def main():
         bboxes[args.name] = bbox.bbox_string(args.bbox)
     else:
         parser.error('must specify --csv, --geojson, or --bbox and --name')
-    print bboxes
 
     p.extract_bboxes(bboxes, outpath=args.outpath)
 
