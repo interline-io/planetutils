@@ -12,8 +12,17 @@ def main():
     parser.add_argument('--geojson', help='Path to GeoJSON file: bbox for each feature is extracted.')
     parser.add_argument('--name', help='Name to give to extract file.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
+    parser.add_argument('--toolchain', help='OSM toolchain', default='osmosis')
+    parser.add_argument('--commands', help='Output a command list instead of performing action, e.g. for parallel usage', action='store_true')
     args = parser.parse_args()
-    p = Planet(args.osmpath)
+
+
+    if args.toolchain == 'osmosis':
+        p = PlanetExtractorOsmosis(args.osmpath)
+    elif args.toolchain == 'osmctools':
+        p = PlanetExtractorOsmconvert(args.osmpath)
+    else:
+        parser.error('unknown toolchain: %s'%args.toolchain)
 
     bboxes = {}
     if args.csv:
@@ -24,8 +33,6 @@ def main():
         bboxes[args.name] = bbox.bbox_string(args.bbox)
     else:
         parser.error('must specify --csv, --geojson, or --bbox and --name')
-    print bboxes
-
     p.extract_bboxes(bboxes, outpath=args.outpath)
 
 if __name__ == '__main__':
