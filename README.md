@@ -132,6 +132,14 @@ For complete help on command-line arguments:
 osm_planet_extract -h
 ```
 
+### osm_planet_get_timestamp
+
+A simple utitlity to print the timestamp of an OSM pbf file.
+
+```sh
+osm_planet_get_timestamp planet-latest.osm.pbf
+```
+
 ### elevation_tile_download
 
 Download elevation tiles from the [Terrain Tiles in the AWS Public Datasets program](https://aws.amazon.com/public-datasets/terrain/). Download for the entire planet, only tiles within a single bounding box, or within multiple bounding boxes.
