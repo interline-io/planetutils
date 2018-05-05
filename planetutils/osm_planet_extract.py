@@ -12,10 +12,13 @@ def main():
     parser.add_argument('--geojson', help='Path to GeoJSON file: bbox for each feature is extracted.')
     parser.add_argument('--name', help='Name to give to extract file.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
+    parser.add_argument('--verbose', help="Verbose output", action='store_true')
     parser.add_argument('--toolchain', help='OSM toolchain', default='osmosis')
     parser.add_argument('--commands', help='Output a command list instead of performing action, e.g. for parallel usage', action='store_true')
     args = parser.parse_args()
 
+    if args.verbose:
+        log.set_verbose()
 
     if args.toolchain == 'osmosis':
         p = PlanetExtractorOsmosis(args.osmpath)

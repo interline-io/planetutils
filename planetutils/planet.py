@@ -6,6 +6,7 @@ import urllib2
 
 import boto3
 
+import log
 from bbox import validate_bbox
 
 class PlanetBase(object):
@@ -16,7 +17,7 @@ class PlanetBase(object):
 
     def osmosis(self, *args):
         cmd = ['osmosis'] + list(args)
-        print ' '.join(cmd)
+        log.debug(' '.join(cmd))
         return subprocess.check_output(
             cmd,
             shell=False
@@ -24,7 +25,7 @@ class PlanetBase(object):
 
     def osmconvert(self, *args):
         cmd = ['osmconvert'] + list(args)
-        print ' '.join(cmd)
+        log.debug(' '.join(cmd))
         return subprocess.check_output(
             cmd,
             shell=False
@@ -36,6 +37,7 @@ class PlanetBase(object):
             '--out-timestamp'
         )
         if 'invalid' in timestamp:
+            log.debug('no timestamp; falling back to osmconvert --out-statistics')
             statistics = self.osmconvert(
                 self.osmpath,
                 '--out-statistics'
@@ -128,9 +130,9 @@ class PlanetDownloaderS3(PlanetBase):
         objs = self._get_planets(bucket, prefix, match)
         objs = sorted(objs, key=lambda x:x.key)
         for i in objs:
-            print 'found planet: s3://%s/%s'%(i.bucket_name, i.key)
+            log.info('found planet: s3://%s/%s'%(i.bucket_name, i.key))
         planet = objs[-1]
-        print 'downloading: s3://%s/%s to %s'%(planet.bucket_name, planet.key, self.osmpath)
+        log.info('downloading: s3://%s/%s to %s'%(planet.bucket_name, planet.key, self.osmpath))
         self._download(planet.bucket_name, planet.key)
 
     def _download(self, bucket_name, key):
