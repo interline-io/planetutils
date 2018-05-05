@@ -56,6 +56,13 @@ class PlanetExtractor(PlanetBase):
     def extract_bbox(self, name, bbox, workers=1, outpath='.'):
         return self.extract_bboxes({name: bbox}, outpath=outpath, workers=workers)
 
+    def extract_commands(self, bboxes, outpath='.'):
+        args = []
+        self.osmconvert = lambda *x:args.append(x)
+        self.osmosis = lambda *x:args.append(x)
+        self.extract_bboxes(bboxes, outpath=outpath)
+        return args
+
 class PlanetExtractorOsmosis(PlanetExtractor):
     def extract_bboxes(self, bboxes, workers=1, outpath='.'):
         args = []

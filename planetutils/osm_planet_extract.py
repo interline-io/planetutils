@@ -33,7 +33,11 @@ def main():
         bboxes[args.name] = bbox.bbox_string(args.bbox)
     else:
         parser.error('must specify --csv, --geojson, or --bbox and --name')
-    p.extract_bboxes(bboxes, outpath=args.outpath)
+
+    if args.commands:
+        print p.extract_commands(bboxes, outpath=args.outpath)
+    else:    
+        p.extract_bboxes(bboxes, outpath=args.outpath)
 
 if __name__ == '__main__':
     main()
