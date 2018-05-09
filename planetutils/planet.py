@@ -15,21 +15,18 @@ class PlanetBase(object):
         d, p = os.path.split(osmpath)
         self.osmosis_workdir = osmosis_workdir or os.path.join(d, '%s.workdir'%p)
 
-    def osmosis(self, *args):
-        cmd = ['osmosis'] + list(args)
-        log.debug(' '.join(cmd))
+    def command(self, args):
+        log.debug(args)
         return subprocess.check_output(
             cmd,
             shell=False
         )
 
+    def osmosis(self, *args):
+        return self.command(['osmosis'] + list(args))
+
     def osmconvert(self, *args):
-        cmd = ['osmconvert'] + list(args)
-        log.debug(' '.join(cmd))
-        return subprocess.check_output(
-            cmd,
-            shell=False
-        )
+        return self.command(['osmconvert'] + list(args))
 
     def get_timestamp(self):
         timestamp = self.osmconvert(
@@ -60,8 +57,7 @@ class PlanetExtractor(PlanetBase):
 
     def extract_commands(self, bboxes, outpath='.'):
         args = []
-        self.osmconvert = lambda *x:args.append(x)
-        self.osmosis = lambda *x:args.append(x)
+        self.command = lambda x:args.append(x)
         self.extract_bboxes(bboxes, outpath=outpath)
         return args
 
@@ -88,7 +84,7 @@ class PlanetExtractorOsmosis(PlanetExtractor):
 class PlanetExtractorOsmconvert(PlanetExtractor):
     def extract_bboxes(self, bboxes, workers=1, outpath='.'):
         for name, bbox in bboxes.items():
-            self.extract_bbox(name, bbox)
+            self.extract_bbox(name, bbox, outpath=outpath)
 
     def extract_bbox(self, name, bbox, workers=1, outpath='.'):
         validate_bbox(bbox)

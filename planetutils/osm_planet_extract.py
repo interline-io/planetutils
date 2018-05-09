@@ -37,9 +37,12 @@ def main():
     else:
         parser.error('must specify --csv, --geojson, or --bbox and --name')
 
+    print args.outpath
     if args.commands:
-        print p.extract_commands(bboxes, outpath=args.outpath)
-    else:    
+        commands = p.extract_commands(bboxes, outpath=args.outpath)
+        for i in commands:
+            print " ".join(i)
+    else:
         p.extract_bboxes(bboxes, outpath=args.outpath)
 
 if __name__ == '__main__':
