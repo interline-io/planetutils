@@ -12,7 +12,7 @@ def main():
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
     args = parser.parse_args()
 
-   if args.verbose:
+    if args.verbose:
         log.set_verbose()
 
     p = ElevationDownloader(args.outpath)
