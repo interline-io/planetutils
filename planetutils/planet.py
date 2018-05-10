@@ -18,7 +18,7 @@ class PlanetBase(object):
     def command(self, args):
         log.debug(args)
         return subprocess.check_output(
-            cmd,
+            args,
             shell=False
         )
 
