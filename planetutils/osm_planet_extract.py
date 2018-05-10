@@ -13,12 +13,19 @@ def main():
     parser.add_argument('--name', help='Name to give to extract file.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
+    parser.add_argument('--toolchain', help='OSM toolchain', default='osmosis')
+    parser.add_argument('--commands', help='Output a command list instead of performing action, e.g. for parallel usage', action='store_true')
     args = parser.parse_args()
 
     if args.verbose:
         log.set_verbose()
 
-    p = Planet(args.osmpath)
+    if args.toolchain == 'osmosis':
+        p = PlanetExtractorOsmosis(args.osmpath)
+    elif args.toolchain == 'osmctools':
+        p = PlanetExtractorOsmconvert(args.osmpath)
+    else:
+        parser.error('unknown toolchain: %s'%args.toolchain)
 
     bboxes = {}
     if args.csv:
@@ -30,7 +37,12 @@ def main():
     else:
         parser.error('must specify --csv, --geojson, or --bbox and --name')
 
-    p.extract_bboxes(bboxes, outpath=args.outpath)
+    if args.commands:
+        commands = p.extract_commands(bboxes, outpath=args.outpath)
+        for i in commands:
+            print " ".join(i)
+    else:
+        p.extract_bboxes(bboxes, outpath=args.outpath)
 
 if __name__ == '__main__':
     main()

@@ -8,6 +8,9 @@ TESTFILE = os.path.join('.','examples','san-francisco-downtown.osm.pbf')
 TESTFILE_TIMESTAMP = '2018-02-02T22:34:43Z'
 TEST_BBOX = [-122.430439,37.766508,-122.379670,37.800052]
 
+# import planetutils.log as log
+# log.set_verbose()
+
 class TestPlanetBase(unittest.TestCase):
     def test_osmosis(self):
         p = planet.PlanetBase(TESTFILE)
@@ -27,11 +30,13 @@ class TestPlanetBase(unittest.TestCase):
         p = planet.PlanetBase(TESTFILE)
         self.assertEquals(p.get_timestamp(), TESTFILE_TIMESTAMP)
 
-    def test_extract_bbox(self, name=None, bbox=None):
-        name = name or 'test'
-        bbox = bbox or TEST_BBOX
+class TestPlanetExtractor(unittest.TestCase):
+    kls = None
+    def extract_bbox(self):
+        name = 'test'
+        bbox = TEST_BBOX
         d = tempfile.mkdtemp()
-        p = planet.PlanetBase(TESTFILE)
+        p = self.kls(TESTFILE)
         outfile = os.path.join(d, '%s.osm.pbf'%name)
         p.extract_bbox(name, bbox, outpath=d)
         self.assertTrue(os.path.exists(outfile))
@@ -39,6 +44,16 @@ class TestPlanetBase(unittest.TestCase):
         self.assertEquals(p2.get_timestamp(), TESTFILE_TIMESTAMP)
         os.unlink(outfile)
         os.rmdir(d)
+
+class TestPlanetExtractorOsmconvert(TestPlanetExtractor):
+    kls = planet.PlanetExtractorOsmconvert
+    def test_extract_bbox(self):
+        self.extract_bbox()
+
+class TestPlanetExtractorOsmosis(TestPlanetExtractor):
+    kls = planet.PlanetExtractorOsmosis
+    def test_extract_bbox(self):
+        self.extract_bbox()
 
 class TestPlanetDownloaderHttp(unittest.TestCase):
     def test_download_planet(self):

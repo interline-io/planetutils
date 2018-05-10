@@ -15,21 +15,18 @@ class PlanetBase(object):
         d, p = os.path.split(osmpath)
         self.osmosis_workdir = osmosis_workdir or os.path.join(d, '%s.workdir'%p)
 
-    def osmosis(self, *args):
-        cmd = ['osmosis'] + list(args)
-        log.debug(' '.join(cmd))
+    def command(self, args):
+        log.debug(args)
         return subprocess.check_output(
-            cmd,
+            args,
             shell=False
         )
 
+    def osmosis(self, *args):
+        return self.command(['osmosis'] + list(args))
+
     def osmconvert(self, *args):
-        cmd = ['osmconvert'] + list(args)
-        log.debug(' '.join(cmd))
-        return subprocess.check_output(
-            cmd,
-            shell=False
-        )
+        return self.command(['osmconvert'] + list(args))
 
     def get_timestamp(self):
         timestamp = self.osmconvert(
@@ -48,12 +45,23 @@ class PlanetBase(object):
             ][0]
         return timestamp.strip()
 
-    def download_planet(self):
+class Planet(PlanetBase):
+    pass
+
+class PlanetExtractor(PlanetBase):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
         raise NotImplementedError
 
-    def update_planet(self, outpath, grain='hour', changeset_url=None):
-        raise NotImplementedError
+    def extract_bbox(self, name, bbox, workers=1, outpath='.'):
+        return self.extract_bboxes({name: bbox}, outpath=outpath, workers=workers)
 
+    def extract_commands(self, bboxes, outpath='.'):
+        args = []
+        self.command = lambda x:args.append(x)
+        self.extract_bboxes(bboxes, outpath=outpath)
+        return args
+
+class PlanetExtractorOsmosis(PlanetExtractor):
     def extract_bboxes(self, bboxes, workers=1, outpath='.'):
         args = []
         args += ['--read-pbf-fast', self.osmpath, 'workers=%s'%int(workers)]
@@ -73,11 +81,24 @@ class PlanetBase(object):
             args += arg
         self.osmosis(*args)
 
-    def extract_bbox(self, name, bbox, workers=1, outpath='.'):
-        return self.extract_bboxes({name: bbox}, outpath=outpath, workers=workers)
+class PlanetExtractorOsmconvert(PlanetExtractor):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+        for name, bbox in bboxes.items():
+            self.extract_bbox(name, bbox, outpath=outpath)
 
-class Planet(PlanetBase):
-    pass
+    def extract_bbox(self, name, bbox, workers=1, outpath='.'):
+        validate_bbox(bbox)
+        left, bottom, right, top = bbox
+        args = [
+            self.osmpath,
+            '-b=%s,%s,%s,%s'%(left, bottom, right, top),
+            '-o=%s'%os.path.join(outpath, '%s.osm.pbf'%name)
+        ]
+        self.osmconvert(*args)
+
+class PlanetDownloader(PlanetBase):
+    def download_planet(self):
+        raise NotImplementedError
 
 class PlanetDownloaderHttp(PlanetBase):
     def _download(self, url, outpath):
@@ -123,6 +144,11 @@ class PlanetDownloaderS3(PlanetBase):
             if r.match(obj.key):
                 objs.append(obj)
         return objs
+
+
+class PlanetUpdater(PlanetBase):
+    def update_planet(self, outpath, grain='hour', changeset_url=None):
+        raise NotImplementedError
 
 class PlanetUpdaterOsmupdate(PlanetBase):
     pass
