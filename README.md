@@ -19,6 +19,7 @@
 - [Usage](#usage)
   * [osm_planet_update](#osm_planet_update)
   * [osm_planet_extract](#osm_planet_extract)
+  * [osm_planet_get_timestamp](#osm_planet_get_timestamp)
   * [elevation_tile_download](#elevation_tile_download)
   * [valhalla_tilepack_list](#valhalla_tilepack_list)
   * [valhalla_tilepack_download](#valhalla_tilepack_download)
