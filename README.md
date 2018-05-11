@@ -49,7 +49,7 @@ PlanetUtils is packaged for use as a:
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.2.6
+docker pull interline/planetutils:release-v0.3.0
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -57,7 +57,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.6 <command>
+docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.3.0 <command>
 ```
 
 ### Using Homebrew on Mac OS
