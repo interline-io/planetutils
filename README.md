@@ -16,7 +16,7 @@
   * [Using Docker container](#using-docker-container)
   * [Using Homebrew on Mac OS](#using-homebrew-on-mac-os)
   * [Using Python package](#using-python-package)
-- [Usage](#usage)
+- [Command-line Usage](#command-line-usage)
   * [osm_planet_update](#osm_planet_update)
   * [osm_planet_extract](#osm_planet_extract)
   * [osm_extract_download](#osm_extract_download)
@@ -24,7 +24,9 @@
   * [elevation_tile_download](#elevation_tile_download)
   * [valhalla_tilepack_list](#valhalla_tilepack_list)
   * [valhalla_tilepack_download](#valhalla_tilepack_download)
-  * [Bounding box CSV file format](#bounding-box-csv-file-format)
+- [Specifying bounding boxes](#specifying-bounding-boxes)
+  * [Bounding box file: CSV format](#bounding-box-file-csv-format)
+  * [Bounding box file: GeoJSON format](#bounding-box-file-geojson-format)
 - [Support](#support)
 
 <!-- tocstop -->
@@ -88,7 +90,7 @@ python ./setup.py test
 pip install .
 ```
 
-## Usage
+## Command-line Usage
 
 PlanetUtils supplies the following command-line utilities:
 
@@ -123,7 +125,7 @@ To create a single extract:
 osm_planet_extract --outpath=data/osm_extracts --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco planet-latest.osm.pbf
 ```
 
-To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file](#bounding-box). For example:
+To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file or GeoJSON file](#bounding-box). For example:
 
 ```sh
 osm_planet_extract --outpath=data/osm_extracts --csv=data/bboxes.csv planet-latest.osm.pbf
@@ -177,7 +179,7 @@ To download tiles to cover a single bounding box:
 elevation_tile_download --outpath=data/elevation --bbox=-122.737,37.449,-122.011,37.955
 ```
 
-To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file](#bounding-box). For example:
+To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file or GeoJSON file](#bounding-box). For example:
 
 ```sh
 elevation_tile_download --outpath=data/elevation --csv=data/bboxes.csv
@@ -233,10 +235,14 @@ For complete help on command-line arguments:
 valhalla_tilepack_download -h
 ```
 
-### Bounding box CSV file format
+## Specifying bounding boxes
 <a name="bounding-box"></a>
 
-When extracting multiple bounding boxes from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your bounding boxes in a single CSV file. Do not include a header row. The format is as follows:
+When extracting multiple bounding boxes from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your bounding boxes in a single file, either CSV or GeoJSON format.
+
+### Bounding box file: CSV format
+
+Do not include a header row. The format is as follows:
 
 ```csv
 [name for extract],[left longitude],[bottom latitude],[right longitude],[top latitude]
@@ -249,6 +255,12 @@ dar-es-salaam,38.894,-7.120,39.661,-6.502
 ```
 
 To determine a bounding box, try the tool at http://bboxfinder.com/
+
+### Bounding box file: GeoJSON format
+
+TODO
+
+To draw bounding box polygons in GeoJSON, try the tool at http://geojson.io/
 
 ## Support
 
