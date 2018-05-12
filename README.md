@@ -19,6 +19,7 @@
 - [Usage](#usage)
   * [osm_planet_update](#osm_planet_update)
   * [osm_planet_extract](#osm_planet_extract)
+  * [osm_extract_download](#osm_extract_download)
   * [osm_planet_get_timestamp](#osm_planet_get_timestamp)
   * [elevation_tile_download](#elevation_tile_download)
   * [valhalla_tilepack_list](#valhalla_tilepack_list)
@@ -33,7 +34,8 @@
 Python-based scripts and a Docker container to work with planet-scale geographic data. Using PlanetUtils, you can:
 
 - maintain your own copy of the [OpenStreetMap](http://www.openstreetmap.org) planet (by applying incremental updates)
-- cut your copy of the OSM planet into named bounding boxes (a.k.a., mini Mapzen Metro Extracts)
+- cut your copy of the OSM planet into named bounding boxes
+- download [OSM Extracts from Interline](https://www.interline.io/osm/extracts/) for popular cities and regions
 - download [Mapzen Terrain Tiles from AWS](https://aws.amazon.com/public-datasets/terrain/) for the planet or your bounding boxes
 - download [Valhalla Tilepacks from Interline](https://www.interline.io/valhalla/tilepacks) for the planet (subscription required)
 
@@ -133,9 +135,27 @@ For complete help on command-line arguments:
 osm_planet_extract -h
 ```
 
+### osm_extract_download
+
+Download regularly updated OSM extracts for popular cities and regions from [OSM Extracts by Interline](https://www.interline.io/osm/extracts). Browse available extracts using [the web interface]((https://www.interline.io/osm/extracts)) or [the GeoJSON file](https://github.com/interline-io/osm-extracts/blob/master/cities.geojson). Anyone can browse the available extracts or propose changes to the extract bounding boxes on [GitHub](https://github.com/interline-io/osm-extracts). A subscription is required to download extracts, to cover hosting costs and keep the service sustainable. (See the OSM Extracts website for more information on how profits are donated to OpenStreetMap and other "open" efforts.)
+
+To download the latest copy of an extract (if `abcd` is your Interline API token and `abidjan_ivory-coast` is the ID for your chosen extract region):
+
+```sh
+osm_extract_download --api-token=abcd abidjan_ivory-coast
+```
+
+For complete help on command-line arguments:
+
+```sh
+osm_extract_download -h
+```
+
+(Note: OSM Extracts is a hosted and managed version of the PlanetUtils library. Every day, the pipeline runs the `osm_planet_update` and `osm_planet_extract` commands.)
+
 ### osm_planet_get_timestamp
 
-A simple utitlity to print the timestamp of an OSM pbf file.
+A simple utility to print the timestamp of an OpenStreetMap PBF file.
 
 ```sh
 osm_planet_get_timestamp planet-latest.osm.pbf
