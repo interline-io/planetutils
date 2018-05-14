@@ -16,13 +16,17 @@
   * [Using Docker container](#using-docker-container)
   * [Using Homebrew on Mac OS](#using-homebrew-on-mac-os)
   * [Using Python package](#using-python-package)
-- [Usage](#usage)
+- [Command-line Usage](#command-line-usage)
   * [osm_planet_update](#osm_planet_update)
   * [osm_planet_extract](#osm_planet_extract)
+  * [osm_extract_download](#osm_extract_download)
+  * [osm_planet_get_timestamp](#osm_planet_get_timestamp)
   * [elevation_tile_download](#elevation_tile_download)
   * [valhalla_tilepack_list](#valhalla_tilepack_list)
   * [valhalla_tilepack_download](#valhalla_tilepack_download)
-  * [Bounding box CSV file format](#bounding-box-csv-file-format)
+- [Specifying bounding boxes](#specifying-bounding-boxes)
+  * [Bounding box file: CSV format](#bounding-box-file-csv-format)
+  * [Bounding box file: GeoJSON format](#bounding-box-file-geojson-format)
 - [Support](#support)
 
 <!-- tocstop -->
@@ -32,7 +36,8 @@
 Python-based scripts and a Docker container to work with planet-scale geographic data. Using PlanetUtils, you can:
 
 - maintain your own copy of the [OpenStreetMap](http://www.openstreetmap.org) planet (by applying incremental updates)
-- cut your copy of the OSM planet into named bounding boxes (a.k.a., mini Mapzen Metro Extracts)
+- cut your copy of the OSM planet into named bounding boxes
+- download [OSM Extracts from Interline](https://www.interline.io/osm/extracts/) for popular cities and regions
 - download [Mapzen Terrain Tiles from AWS](https://aws.amazon.com/public-datasets/terrain/) for the planet or your bounding boxes
 - download [Valhalla Tilepacks from Interline](https://www.interline.io/valhalla/tilepacks) for the planet (subscription required)
 
@@ -49,7 +54,7 @@ PlanetUtils is packaged for use as a:
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.2.6
+docker pull interline/planetutils:release-v0.3.0
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -57,7 +62,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.2.6 <command>
+docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.3.0 <command>
 ```
 
 ### Using Homebrew on Mac OS
@@ -85,7 +90,7 @@ python ./setup.py test
 pip install .
 ```
 
-## Usage
+## Command-line Usage
 
 PlanetUtils supplies the following command-line utilities:
 
@@ -120,7 +125,7 @@ To create a single extract:
 osm_planet_extract --outpath=data/osm_extracts --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco planet-latest.osm.pbf
 ```
 
-To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file](#bounding-box). For example:
+To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file or GeoJSON file](#bounding-box). For example:
 
 ```sh
 osm_planet_extract --outpath=data/osm_extracts --csv=data/bboxes.csv planet-latest.osm.pbf
@@ -132,9 +137,27 @@ For complete help on command-line arguments:
 osm_planet_extract -h
 ```
 
+### osm_extract_download
+
+Download regularly updated OSM extracts for popular cities and regions from [OSM Extracts by Interline](https://www.interline.io/osm/extracts). Browse available extracts using [the web interface]((https://www.interline.io/osm/extracts)) or [the GeoJSON file](https://github.com/interline-io/osm-extracts/blob/master/cities.geojson). Anyone can browse the available extracts or propose changes to the extract bounding boxes on [GitHub](https://github.com/interline-io/osm-extracts). A subscription is required to download extracts, to cover hosting costs and keep the service sustainable. (See the OSM Extracts website for more information on how profits are donated to OpenStreetMap and other "open" efforts.)
+
+To download the latest copy of an extract (if `abcd` is your Interline API token and `abidjan_ivory-coast` is the ID for your chosen extract region):
+
+```sh
+osm_extract_download --api-token=abcd abidjan_ivory-coast
+```
+
+For complete help on command-line arguments:
+
+```sh
+osm_extract_download -h
+```
+
+(Note: OSM Extracts is a hosted and managed version of the PlanetUtils library. Every day, the pipeline runs the `osm_planet_update` and `osm_planet_extract` commands.)
+
 ### osm_planet_get_timestamp
 
-A simple utitlity to print the timestamp of an OSM pbf file.
+A simple utility to print the timestamp of an OpenStreetMap PBF file.
 
 ```sh
 osm_planet_get_timestamp planet-latest.osm.pbf
@@ -156,7 +179,7 @@ To download tiles to cover a single bounding box:
 elevation_tile_download --outpath=data/elevation --bbox=-122.737,37.449,-122.011,37.955
 ```
 
-To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file](#bounding-box). For example:
+To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file or GeoJSON file](#bounding-box). For example:
 
 ```sh
 elevation_tile_download --outpath=data/elevation --csv=data/bboxes.csv
@@ -212,10 +235,14 @@ For complete help on command-line arguments:
 valhalla_tilepack_download -h
 ```
 
-### Bounding box CSV file format
+## Specifying bounding boxes
 <a name="bounding-box"></a>
 
-When extracting multiple bounding boxes from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your bounding boxes in a single CSV file. Do not include a header row. The format is as follows:
+When extracting multiple bounding boxes from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your bounding boxes in a single file, either CSV or GeoJSON format.
+
+### Bounding box file: CSV format
+
+Do not include a header row. The format is as follows:
 
 ```csv
 [name for extract],[left longitude],[bottom latitude],[right longitude],[top latitude]
@@ -228,6 +255,16 @@ dar-es-salaam,38.894,-7.120,39.661,-6.502
 ```
 
 To determine a bounding box, try the tool at http://bboxfinder.com/
+
+### Bounding box file: GeoJSON format
+
+Alternatively, you can specify the bounding boxes as features in a GeoJSON file, using the `--geojson` argument.
+
+```sh
+osm_planet_extract --geojson=examples/test.geojson examples/san-francisco-downtown.osm.pbf
+```
+
+To draw bounding box polygons in GeoJSON, try the tool at http://geojson.io/. Currently, the bounding box for each feature is used. Future releases may support polygon clipping.
 
 ## Support
 
