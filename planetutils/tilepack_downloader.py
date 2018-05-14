@@ -1,3 +1,4 @@
+import os
 import urllib
 import urlparse
 import subprocess
@@ -49,7 +50,7 @@ Tilepack ID: %s
             """%(
                 tilepack['id'],
                 a['osm_planet_datetime'],
-                a['bucket_key'],
+                os.path.basename(a['bucket_key']),
                 a['bucket_provider'],
                 ", ".join(a.get('data_contents', [])),
                 tilepack.get('links',{}).get('self'),

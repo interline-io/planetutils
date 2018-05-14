@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 
+import log
 from bbox import load_bboxes_csv, bbox_string
 from elevation_tile_downloader import ElevationTileDownloader
 

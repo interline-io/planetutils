@@ -26,12 +26,10 @@ def main():
     else:
         if not outpath.endswith('.tar'):
             log.warning("Warning: decompressed output path %s does not end in .tar"%outpath)
-    if os.path.exists(outpath):
-        log.warning("Warning: output path %s already exists."%outpath)
 
     downloader = TilepackDownloader()
     downloader.download(
-        args.outpath,
+        outpath,
         version=args.id,
         compressed=args.compressed,
         api_token=args.api_token or os.getenv('INTERLINE_API_TOKEN')
