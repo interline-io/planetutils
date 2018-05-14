@@ -5,8 +5,9 @@ import json
 import urllib2
 
 import log
+import download
 
-class Tilepack(object):
+class TilepackDownloader(object):
     HOST = 'https://app.interline.io'
     def download(self, outpath, version='latest', api_token=None, compressed=False):
         # Endpoint
@@ -21,19 +22,8 @@ class Tilepack(object):
         u[3] = urllib.urlencode(q)
         url = urlparse.urlunsplit(u)
         # Download
-        args = ['curl', '-L', '--fail', '-o', outpath, url]
-        if not compressed:
-            args.append('--compressed')
-        log.info("Downloading to %s"%outpath)
-        log.debug(' '.join(args))
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
-        e = p.wait()
-        if e != 0:
-            raise Exception("Error downloading: %s"%err.split("curl:")[-1])
-        else:
-            log.info("Done")
-    
+        download.download_curl(url, outpath, compressed=compressed)
+   
     def list(self):
         url = "%s/valhalla_planet_tilepacks.json"%(self.HOST)
         contents = urllib2.urlopen(url).read()

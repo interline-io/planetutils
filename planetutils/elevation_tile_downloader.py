@@ -18,7 +18,7 @@ def download_gzip(url, path):
         ps2 = subprocess.Popen(['gzip', '-d'], stdin=ps1.stdout, stdout=f)
         ps2.wait()    
 
-class ElevationDownloader(object):
+class ElevationTileDownloader(object):
     HGT_SIZE = (3601 * 3601 * 2)
     
     def __init__(self, outpath='.'):

@@ -5,6 +5,7 @@ import argparse
 import log
 import tilepack
 from bbox import bbox_string, load_bboxes_csv
+from tilepack_downloader import TilepackDownloader
 
 def main():
     parser = argparse.ArgumentParser(usage="Valhalla Tilepack Download tool. If no Tilepack ID is provided, the latest Tilepack is used.")
@@ -28,8 +29,8 @@ def main():
     if os.path.exists(outpath):
         log.warning("Warning: output path %s already exists."%outpath)
 
-    tp = tilepack.Tilepack()
-    tp.download(
+    downloader = TilepackDownloader()
+    downloader.download(
         args.outpath,
         version=args.id,
         compressed=args.compressed,
