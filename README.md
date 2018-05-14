@@ -47,6 +47,8 @@ PlanetUtils is packaged for use as a:
 - Python package, for use on any operating system
 - Homebrew formula, for use on Mac OS
 
+PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis) and [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/), among other great open-source components.
+
 ## Installation
 
 ### Using Docker container
