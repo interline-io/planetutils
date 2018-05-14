@@ -3,23 +3,23 @@ import os
 import types
 import unittest
 
-import planetutils.elevation as elevation
+from planetutils.elevation_tile_downloader import ElevationTileDownloader
 
 CA = [-126.386719,32.157012,-113.532715,42.244785]
 
-class TestElevationDownloader(unittest.TestCase):
+class TestElevationTileDownloader(unittest.TestCase):
     def test_download_bboxes(self):
         pass
         
     def test_hgtpath(self):
-        e = elevation.ElevationDownloader('.')
+        e = ElevationTileDownloader('.')
         expect = ('N122', 'N122E037.hgt')
         hgtpath = e.hgtpath(37, 122)
         self.assertEquals(hgtpath[0], expect[0])
         self.assertEquals(hgtpath[1], expect[1])
     
     def test_get_bbox_tiles(self):
-        e = elevation.ElevationDownloader('.')
+        e = ElevationTileDownloader('.')
         tiles = e.get_bbox_tiles(CA)
         self.assertEquals(len(tiles), 154)
         tiles = e.get_bbox_tiles([-180,-90,180,90])
@@ -29,21 +29,21 @@ class TestElevationDownloader(unittest.TestCase):
         COUNT = []
         def c(self, bucket, prefix, x, y):
             COUNT.append([x,y])
-        e.download_hgt = types.MethodType(c, elevation.ElevationDownloader)
+        e.download_hgt = types.MethodType(c, ElevationTileDownloader)
         method(*args)
         self.assertEquals(len(COUNT), expect)
     
     def test_download_planet(self):
-        e = elevation.ElevationDownloader('.')
+        e = ElevationTileDownloader('.')
         self.download_bbox(e, e.download_planet, [], 64800)
     
     def test_download_bbox(self):
-        e = elevation.ElevationDownloader('.')
+        e = ElevationTileDownloader('.')
         self.download_bbox(e, e.download_bbox, [CA], 154)
     
     def test_download_bbox_found(self):
         d = tempfile.mkdtemp()
-        e = elevation.ElevationDownloader(d)
+        e = ElevationTileDownloader(d)
         # correct size
         path = e.hgtpath(-119, 37)
         os.makedirs(os.path.join(d, path[0]))

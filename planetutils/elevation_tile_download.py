@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import argparse
-from elevation import *
 
+import log
 from bbox import load_bboxes_csv, bbox_string
+from elevation_tile_downloader import ElevationTileDownloader
 
 def main():
     parser = argparse.ArgumentParser()
@@ -15,7 +16,7 @@ def main():
     if args.verbose:
         log.set_verbose()
 
-    p = ElevationDownloader(args.outpath)
+    p = ElevationTileDownloader(args.outpath)
     if args.csv:
         p.download_bboxes(load_bboxes_csv(args.csv))
     elif args.bbox:

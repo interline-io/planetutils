@@ -5,6 +5,7 @@ import argparse
 import log
 import tilepack
 from bbox import bbox_string, load_bboxes_csv
+from tilepack_downloader import TilepackDownloader
 
 def main():
     parser = argparse.ArgumentParser(usage="Valhalla Tilepack Download tool. If no Tilepack ID is provided, the latest Tilepack is used.")
@@ -25,12 +26,10 @@ def main():
     else:
         if not outpath.endswith('.tar'):
             log.warning("Warning: decompressed output path %s does not end in .tar"%outpath)
-    if os.path.exists(outpath):
-        log.warning("Warning: output path %s already exists."%outpath)
 
-    tp = tilepack.Tilepack()
-    tp.download(
-        args.outpath,
+    downloader = TilepackDownloader()
+    downloader.download(
+        outpath,
         version=args.id,
         compressed=args.compressed,
         api_token=args.api_token or os.getenv('INTERLINE_API_TOKEN')

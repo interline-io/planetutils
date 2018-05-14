@@ -3,6 +3,7 @@ import os
 import subprocess
 import math
 
+import download
 import log
 from bbox import validate_bbox
 
@@ -12,13 +13,7 @@ def makedirs(path):
     except OSError, e:
         pass
 
-def download_gzip(url, path):
-    with open(path, 'wb') as f:
-        ps1 = subprocess.Popen(['curl', '-s', url], stdout=subprocess.PIPE)
-        ps2 = subprocess.Popen(['gzip', '-d'], stdin=ps1.stdout, stdout=f)
-        ps2.wait()    
-
-class ElevationDownloader(object):
+class ElevationTileDownloader(object):
     HGT_SIZE = (3601 * 3601 * 2)
     
     def __init__(self, outpath='.'):
@@ -75,5 +70,5 @@ class ElevationDownloader(object):
         makedirs(os.path.join(self.outpath, od))
         url = 'http://s3.amazonaws.com/%s/%s/%s/%s.gz'%(bucket, prefix, od, key)
         log.info("downloading %s to %s"%(url, op))
-        download_gzip(url, op)
+        download.download_gzip(url, op)
         
