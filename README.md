@@ -258,9 +258,13 @@ To determine a bounding box, try the tool at http://bboxfinder.com/
 
 ### Bounding box file: GeoJSON format
 
-TODO
+Alternatively, you can specify the bounding boxes as features in a GeoJSON file, using the `--geojson` argument.
 
-To draw bounding box polygons in GeoJSON, try the tool at http://geojson.io/
+```sh
+osm_planet_extract --geojson=examples/test.geojson examples/san-francisco-downtown.osm.pbf
+```
+
+To draw bounding box polygons in GeoJSON, try the tool at http://geojson.io/. Currently, the bounding box for each feature is used. Future releases may support polygon clipping.
 
 ## Support
 
