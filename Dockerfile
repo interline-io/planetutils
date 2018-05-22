@@ -7,6 +7,8 @@ RUN apt-get install \
       python \
       python-pip \
       curl \
+      openjdk-8-jre \
+      openjdk-11-jre \
       osmosis \
       osmctools \
       awscli \
