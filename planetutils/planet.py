@@ -3,6 +3,8 @@ import re
 import os
 import subprocess
 import urllib2
+import tempfile
+import json
 
 import boto3
 
@@ -96,6 +98,26 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
         ]
         self.osmconvert(*args)
 
+class PlanetExtractorOsmium(PlanetExtractor):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+        extracts = []
+        for name, bbox in bboxes.items():
+            validate_bbox(bbox)
+            left, bottom, right, top = bbox
+            extracts.append({
+                'output': '%s.osm.pbf'%name,
+                'output_format': 'pbf',
+                'bbox': {'left': left, 'right': right, 'top': top, 'bottom':bottom}
+            })
+            print extracts[-1]
+        config = {'directory': outpath, 'extracts': extracts}
+        path = None
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            json.dump(config, f)
+            path = f.name
+        self.command(['osmium', 'extract', '-c', path, self.osmpath])
+        os.unlink(path)
+
 class PlanetDownloader(PlanetBase):
     def download_planet(self):
         raise NotImplementedError
@@ -152,6 +174,12 @@ class PlanetUpdater(PlanetBase):
 
 class PlanetUpdaterOsmupdate(PlanetBase):
     pass
+
+class PlanetUpdaterOsmium(PlanetBase):
+    def update_planet(self, outpath, grain='minute', changeset_url=None):
+        if not os.path.exists(self.osmpath):
+            raise Exception('planet file does not exist: %s'%self.osmpath)
+        self.command(['pyosmium-up-to-date', '-s', '8000', '-v', self.osmpath, '-o', outpath])
 
 class PlanetUpdaterOsmosis(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None):

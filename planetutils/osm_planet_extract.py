@@ -24,6 +24,8 @@ def main():
         p = PlanetExtractorOsmosis(args.osmpath)
     elif args.toolchain == 'osmctools':
         p = PlanetExtractorOsmconvert(args.osmpath)
+    elif args.toolchain == 'osmium':
+        p = PlanetExtractorOsmium(args.osmpath)
     else:
         parser.error('unknown toolchain: %s'%args.toolchain)
 
