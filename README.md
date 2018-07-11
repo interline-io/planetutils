@@ -27,6 +27,7 @@
 - [Specifying bounding boxes](#specifying-bounding-boxes)
   * [Bounding box file: CSV format](#bounding-box-file-csv-format)
   * [Bounding box file: GeoJSON format](#bounding-box-file-geojson-format)
+- [Switching toolchains](#switching-toolchains)
 - [Support](#support)
 
 <!-- tocstop -->
@@ -47,7 +48,7 @@ PlanetUtils is packaged for use as a:
 - Python package, for use on any operating system
 - Homebrew formula, for use on Mac OS
 
-PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis) and [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/), among other great open-source components.
+PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis), [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/), and [Osmium](https://osmcode.org/osmium-tool/) among other great open-source components.
 
 ## Installation
 
@@ -267,6 +268,15 @@ osm_planet_extract --geojson=examples/test.geojson examples/san-francisco-downto
 ```
 
 To draw bounding box polygons in GeoJSON, try the tool at http://geojson.io/. Currently, the bounding box for each feature is used. Future releases may support polygon clipping.
+
+## Switching toolchains
+
+PlanetUtils wraps up a number of libraries, including Osmosis, Osmium, and OSM C Tools. Some PlanetUtils commands allow you to switch which library is used to perform the operation:
+
+ | PlanetUtils command | argument flag | default | options |
+ | ------------------- | ------------- | ------- | ------- |
+ | `osm_planet_update` | `--toolchain` | `osmosis` | `osmosis`, `osmium` |
+ | `osm_planet_extract` | `--toolchain` | `osmosis` | `osmosis`, `osmium`, `osmctools` |
 
 ## Support
 
