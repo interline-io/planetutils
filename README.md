@@ -84,6 +84,8 @@ If you want to install and use the Python package directly, you'll need to provi
 - Java
 - [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis)
 - [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/)
+- [Osmium Tool](https://osmcode.org/osmium-tool/)
+- [PyOsmium](https://osmcode.org/pyosmium/)
 
 Then clone this repo, run the tests, and install the Python package:
 
