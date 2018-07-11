@@ -2,8 +2,7 @@ FROM ubuntu:18.04
 LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.io>"
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update -y
-RUN apt-get install \
+RUN apt-get update -y && apt-get install \
       python \
       python-pip \
       curl \
@@ -11,6 +10,7 @@ RUN apt-get install \
       openjdk-11-jre \
       osmosis \
       osmctools \
+      osmium-tool libboost-python-dev libexpat1-dev zlib1g-dev libbz2-dev \
       awscli \
       software-properties-common \
       -y
