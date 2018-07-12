@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
 import os
 import subprocess
 import math
 
-import download
-import log
-from bbox import validate_bbox
+from . import download
+from . import log
+from .bbox import validate_bbox
 
 def makedirs(path):
     try:

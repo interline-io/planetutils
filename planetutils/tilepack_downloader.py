@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 import os
 import urllib
 import urlparse
@@ -5,8 +7,8 @@ import subprocess
 import json
 import urllib2
 
-import log
-import download
+from . import log
+from . import download
 
 class TilepackDownloader(object):
     HOST = 'https://app.interline.io'

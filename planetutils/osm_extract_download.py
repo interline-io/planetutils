@@ -1,10 +1,11 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
 import os
 import argparse
 
-import log
-from bbox import bbox_string, load_bboxes_csv
-from osm_extract_downloader import OsmExtractDownloader
+from . import log
+from .bbox import bbox_string, load_bboxes_csv
+from .osm_extract_downloader import OsmExtractDownloader
 
 def main():
     parser = argparse.ArgumentParser(usage="OSM Extract Download tool.")

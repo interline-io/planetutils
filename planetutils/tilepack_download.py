@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
 import os
 import argparse
 
-import log
-import tilepack
-from bbox import bbox_string, load_bboxes_csv
-from tilepack_downloader import TilepackDownloader
+from . import log
+from . import tilepack
+from .bbox import bbox_string, load_bboxes_csv
+from .tilepack_downloader import TilepackDownloader
 
 def main():
     parser = argparse.ArgumentParser(usage="Valhalla Tilepack Download tool. If no Tilepack ID is provided, the latest Tilepack is used.")

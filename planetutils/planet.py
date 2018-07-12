@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
 import re
 import os
 import subprocess
@@ -8,8 +9,8 @@ import json
 
 import boto3
 
-import log
-from bbox import validate_bbox
+from . import log
+from .bbox import validate_bbox
 
 class PlanetBase(object):
     def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):

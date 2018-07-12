@@ -1,11 +1,12 @@
+from __future__ import absolute_import
 import urllib
 import urlparse
 import subprocess
 import json
 import urllib2
 
-import log
-import download
+from . import log
+from . import download
 
 class OsmExtractDownloader(object):
     HOST = 'https://app.interline.io'

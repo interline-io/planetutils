@@ -1,6 +1,7 @@
+from __future__ import absolute_import
 import os
 import subprocess
-import log
+from . import log
 
 def download(url, outpath):
     pass

@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+from __future__ import print_function
+from __future__ import absolute_import
 import argparse
-from planet import *
-import bbox
-from bbox import bbox_string, load_bboxes_csv
+from .planet import *
+from . import bbox
+from .bbox import bbox_string, load_bboxes_csv
 
 def main():
     parser = argparse.ArgumentParser()
