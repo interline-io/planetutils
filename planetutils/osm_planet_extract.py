@@ -42,7 +42,7 @@ def main():
     if args.commands:
         commands = p.extract_commands(bboxes, outpath=args.outpath)
         for i in commands:
-            print " ".join(i)
+            print(" ".join(i))
     else:
         p.extract_bboxes(bboxes, outpath=args.outpath)
 

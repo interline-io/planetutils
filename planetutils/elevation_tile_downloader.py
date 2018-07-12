@@ -10,7 +10,7 @@ from bbox import validate_bbox
 def makedirs(path):
     try:
         os.makedirs(path)
-    except OSError, e:
+    except OSError as e:
         pass
 
 class ElevationTileDownloader(object):

@@ -109,7 +109,6 @@ class PlanetExtractorOsmium(PlanetExtractor):
                 'output_format': 'pbf',
                 'bbox': {'left': left, 'right': right, 'top': top, 'bottom':bottom}
             })
-            print extracts[-1]
         config = {'directory': outpath, 'extracts': extracts}
         path = None
         with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -199,7 +198,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
             raise Exception('workdir exists and is not a directory: %s'%self.osmosis_workdir)
         try:
             os.makedirs(self.osmosis_workdir)
-        except OSError, e:
+        except OSError as e:
             pass
         self.osmosis(
             '--read-replication-interval-init',

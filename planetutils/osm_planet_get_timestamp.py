@@ -9,7 +9,7 @@ def main():
     args = parser.parse_args()
     p = Planet(args.osmpath)
     log.set_quiet()
-    print p.get_timestamp()
+    print(p.get_timestamp())
 
 if __name__ == '__main__':
     main()
