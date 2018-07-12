@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
 import os
 import subprocess
 import math
@@ -35,8 +35,8 @@ class ElevationTileDownloader(object):
         max_y = int(math.ceil(top))
         expect = (max_x - min_x + 1) * (max_y - min_y + 1)
         tiles = set()
-        for x in xrange(min_x, max_x):
-            for y in xrange(min_y, max_y):
+        for x in range(min_x, max_x):
+            for y in range(min_y, max_y):
                 tiles.add((x,y))
         return tiles
     

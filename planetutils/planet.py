@@ -1,9 +1,13 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
+from future.standard_library import install_aliases
+install_aliases()
+from urllib.parse import urlparse, urlencode
+from urllib.request import urlopen
+
 import re
 import os
 import subprocess
-import urllib2
 import tempfile
 import json
 
@@ -23,7 +27,7 @@ class PlanetBase(object):
         return subprocess.check_output(
             args,
             shell=False
-        )
+        ).decode('utf-8')
 
     def osmosis(self, *args):
         return self.command(['osmosis'] + list(args))
@@ -217,7 +221,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
             return
         timestamp = self.get_timestamp()
         url = 'https://replicate-sequences.osm.mazdermind.de/?%s'%timestamp
-        state = urllib2.urlopen(url).read()
+        state = urlopen(url).read()
         with open(statepath, 'w') as f:
             f.write(state)
 

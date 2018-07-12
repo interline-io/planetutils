@@ -1,11 +1,14 @@
-from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, print_function
+from future.standard_library import install_aliases
+install_aliases()
+from urllib.parse import urlparse, urlencode
+from urllib.request import urlopen
+
 import os
-import urllib
 import urlparse
 import subprocess
 import json
-import urllib2
+
 
 from . import log
 from . import download
@@ -22,14 +25,14 @@ class TilepackDownloader(object):
         q = urlparse.parse_qs(u[3])
         if api_token:
             q['api_token'] = api_token
-        u[3] = urllib.urlencode(q)
+        u[3] = urlencode(q)
         url = urlparse.urlunsplit(u)
         # Download
         download.download_curl(url, outpath, compressed=compressed)
    
     def list(self):
         url = "%s/valhalla_planet_tilepacks.json"%(self.HOST)
-        contents = urllib2.urlopen(url).read()
+        contents = urlopen(url).read()
         tilepacks = json.loads(contents).get('data', [])
         tilepacks = sorted(tilepacks, key=lambda x:int(x.get('id')))
         for tilepack in tilepacks:

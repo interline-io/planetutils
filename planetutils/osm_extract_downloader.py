@@ -1,9 +1,12 @@
-from __future__ import absolute_import
-import urllib
-import urlparse
+from __future__ import absolute_import, unicode_literals
+from future.standard_library import install_aliases
+install_aliases()
+from urllib.parse import urlparse, urlencode
+from urllib.request import urlopen
+
 import subprocess
 import json
-import urllib2
+
 
 from . import log
 from . import download
@@ -23,7 +26,7 @@ class OsmExtractDownloader(object):
             q['string_id'] = osm_extract_id
         if api_token:
             q['api_token'] = api_token
-        u[3] = urllib.urlencode(q)
+        u[3] = urlencode(q)
         url = urlparse.urlunsplit(u)
 
         # Download
