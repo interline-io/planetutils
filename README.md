@@ -27,6 +27,7 @@
 - [Specifying bounding boxes](#specifying-bounding-boxes)
   * [Bounding box file: CSV format](#bounding-box-file-csv-format)
   * [Bounding box file: GeoJSON format](#bounding-box-file-geojson-format)
+- [Switching toolchains](#switching-toolchains)
 - [Support](#support)
 
 <!-- tocstop -->
@@ -47,7 +48,7 @@ PlanetUtils is packaged for use as a:
 - Python package, for use on any operating system
 - Homebrew formula, for use on Mac OS
 
-PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis) and [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/), among other great open-source components.
+PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis), [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/), and [Osmium](https://osmcode.org/osmium-tool/) among other great open-source components.
 
 ## Installation
 
@@ -56,7 +57,7 @@ PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.o
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.3.1
+docker pull interline/planetutils:release-v0.3.2
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -64,7 +65,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.3.1 <command>
+docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.3.2 <command>
 ```
 
 ### Using Homebrew on Mac OS
@@ -83,6 +84,8 @@ If you want to install and use the Python package directly, you'll need to provi
 - Java
 - [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis)
 - [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/)
+- [Osmium Tool](https://osmcode.org/osmium-tool/)
+- [PyOsmium](https://osmcode.org/pyosmium/)
 
 Then clone this repo, run the tests, and install the Python package:
 
@@ -267,6 +270,15 @@ osm_planet_extract --geojson=examples/test.geojson examples/san-francisco-downto
 ```
 
 To draw bounding box polygons in GeoJSON, try the tool at http://geojson.io/. Currently, the bounding box for each feature is used. Future releases may support polygon clipping.
+
+## Switching toolchains
+
+PlanetUtils wraps up a number of libraries, including Osmosis, Osmium, and OSM C Tools. Some PlanetUtils commands allow you to switch which library is used to perform the operation:
+
+ | PlanetUtils command | argument flag | default | options |
+ | ------------------- | ------------- | ------- | ------- |
+ | `osm_planet_update` | `--toolchain` | `osmosis` | `osmosis`, `osmium` |
+ | `osm_planet_extract` | `--toolchain` | `osmosis` | `osmosis`, `osmium`, `osmctools` |
 
 ## Support
 

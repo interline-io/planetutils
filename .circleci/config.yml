@@ -7,7 +7,7 @@ jobs:
       - checkout
       - run:
           name: Installing OSM dependencies
-          command: sudo apt-get install osmosis osmctools
+          command: sudo apt-get install osmosis osmctools osmium-tool libboost-python-dev libexpat1-dev zlib1g-dev libbz2-dev
       - run:
           name: Installing Python package and dependencies
           command: pip install --user .
