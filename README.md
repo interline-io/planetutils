@@ -57,7 +57,7 @@ PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.o
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.3.2
+docker pull interline/planetutils:release-v0.4.0
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -65,7 +65,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.3.2 <command>
+docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.4.0 <command>
 ```
 
 ### Using Homebrew on Mac OS
@@ -81,8 +81,7 @@ brew install interline-io/planetutils/planetutils
 If you want to install and use the Python package directly, you'll need to provide:
 
 - Python 2.x
-- Java
-- [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis)
+- Java and [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis)
 - [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/)
 - [Osmium Tool](https://osmcode.org/osmium-tool/)
 - [PyOsmium](https://osmcode.org/pyosmium/)
@@ -279,6 +278,10 @@ PlanetUtils wraps up a number of libraries, including Osmosis, Osmium, and OSM C
  | ------------------- | ------------- | ------- | ------- |
  | `osm_planet_update` | `--toolchain` | `osmosis` | `osmosis`, `osmium` |
  | `osm_planet_extract` | `--toolchain` | `osmosis` | `osmosis`, `osmium`, `osmctools` |
+
+If you are using `osm_planet_extract` with `--toolchain=osmium`, you can also use the `--strategy=` option to select `simple, complete_ways (default) or smart`.
+
+If you are using `osm_planet_update` with `--toolchain=osmium`, you can also use the `--size=` option to limit the amount of updates downloaded from the OSM replication server. Osmium requires this data to be held in memory. The default is `1024` megabytes.
 
 ## Support
 
