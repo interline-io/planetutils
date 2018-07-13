@@ -173,20 +173,20 @@ class PlanetDownloaderS3(PlanetBase):
 
 
 class PlanetUpdater(PlanetBase):
-    def update_planet(self, outpath, grain='hour', changeset_url=None):
+    def update_planet(self, outpath, grain='hour', changeset_url=None, **kw):
         raise NotImplementedError
 
 class PlanetUpdaterOsmupdate(PlanetBase):
     pass
 
 class PlanetUpdaterOsmium(PlanetBase):
-    def update_planet(self, outpath, grain='minute', changeset_url=None):
+    def update_planet(self, outpath, grain='minute', changeset_url=None, size='1024', **kw):
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
-        self.command(['pyosmium-up-to-date', '-s', '8000', '-v', self.osmpath, '-o', outpath])
+        self.command(['pyosmium-up-to-date', '-s', size, '-v', self.osmpath, '-o', outpath])
 
 class PlanetUpdaterOsmosis(PlanetBase):
-    def update_planet(self, outpath, grain='minute', changeset_url=None):
+    def update_planet(self, outpath, grain='minute', changeset_url=None, **kw):
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
         self.changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain
