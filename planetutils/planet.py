@@ -62,14 +62,14 @@ class PlanetExtractor(PlanetBase):
     def extract_bbox(self, name, bbox, workers=1, outpath='.'):
         return self.extract_bboxes({name: bbox}, outpath=outpath, workers=workers)
 
-    def extract_commands(self, bboxes, outpath='.'):
+    def extract_commands(self, bboxes, outpath='.', **kw):
         args = []
         self.command = lambda x:args.append(x)
-        self.extract_bboxes(bboxes, outpath=outpath)
+        self.extract_bboxes(bboxes, outpath=outpath, **kw)
         return args
 
 class PlanetExtractorOsmosis(PlanetExtractor):
-    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.', **kw):
         args = []
         args += ['--read-pbf-fast', self.osmpath, 'workers=%s'%int(workers)]
         args += ['--tee', str(len(bboxes))]
@@ -89,11 +89,11 @@ class PlanetExtractorOsmosis(PlanetExtractor):
         self.osmosis(*args)
 
 class PlanetExtractorOsmconvert(PlanetExtractor):
-    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.', **kw):
         for name, bbox in bboxes.items():
             self.extract_bbox(name, bbox, outpath=outpath)
 
-    def extract_bbox(self, name, bbox, workers=1, outpath='.'):
+    def extract_bbox(self, name, bbox, workers=1, outpath='.', **kw):
         validate_bbox(bbox)
         left, bottom, right, top = bbox
         args = [
@@ -104,7 +104,7 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
         self.osmconvert(*args)
 
 class PlanetExtractorOsmium(PlanetExtractor):
-    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.', strategy='complete_ways', **kw):
         extracts = []
         for name, bbox in bboxes.items():
             validate_bbox(bbox)
@@ -116,10 +116,10 @@ class PlanetExtractorOsmium(PlanetExtractor):
             })
         config = {'directory': outpath, 'extracts': extracts}
         path = None
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             json.dump(config, f)
             path = f.name
-        self.command(['osmium', 'extract', '-c', path, self.osmpath])
+        self.command(['osmium', 'extract', '-s', strategy, '-c', path, self.osmpath])
         os.unlink(path)
 
 class PlanetDownloader(PlanetBase):
