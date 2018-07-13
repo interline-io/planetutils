@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 import tempfile
 import types
 import os
@@ -28,7 +29,7 @@ class TestPlanetBase(unittest.TestCase):
     
     def test_get_timestamp(self):
         p = planet.PlanetBase(TESTFILE)
-        self.assertEquals(p.get_timestamp(), TESTFILE_TIMESTAMP)
+        self.assertEqual(p.get_timestamp(), TESTFILE_TIMESTAMP)
 
 class TestPlanetExtractor(unittest.TestCase):
     kls = None
@@ -41,7 +42,7 @@ class TestPlanetExtractor(unittest.TestCase):
         p.extract_bbox(name, bbox, outpath=d)
         self.assertTrue(os.path.exists(outfile))
         p2 = planet.PlanetBase(outfile)
-        self.assertEquals(p2.get_timestamp(), TESTFILE_TIMESTAMP)
+        self.assertEqual(p2.get_timestamp(), TESTFILE_TIMESTAMP)
         os.unlink(outfile)
         os.rmdir(d)
 
@@ -64,7 +65,7 @@ class TestPlanetDownloaderHttp(unittest.TestCase):
             COUNT.append([url,outpath])
         p._download = types.MethodType(c, planet.PlanetDownloaderHttp)
         p.download_planet()
-        self.assertEquals(COUNT[0], ['https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf', 'test.osm.pbf'])
+        self.assertEqual(COUNT[0], ['https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf', 'test.osm.pbf'])
         
 if __name__ == '__main__':
     unittest.main()

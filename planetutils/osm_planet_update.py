@@ -1,8 +1,9 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, unicode_literals
 import argparse
 
-import log
-from planet import *
+from . import log
+from .planet import *
 
 def main():
     parser = argparse.ArgumentParser()
@@ -12,6 +13,7 @@ def main():
     parser.add_argument('--s3', action='store_true', help='Download using S3 client from AWS Public Datasets program. AWS credentials required.')
     parser.add_argument('--workdir', help="Osmosis replication workingDirectory.", default='.')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
+    parser.add_argument('--size', help='Osmium update memory limit', default='1024')
     args = parser.parse_args()
 
     if args.verbose:
@@ -25,7 +27,6 @@ def main():
             d = PlanetDownloaderHttp(args.osmpath)
         d.download_planet()
 
-
     if args.toolchain == 'osmosis':
         p = PlanetUpdaterOsmosis(args.osmpath)
     elif args.toolchain == 'osmium':
@@ -33,7 +34,7 @@ def main():
     else:
         parser.error('unknown toolchain: %s'%args.toolchain)
 
-    p.update_planet(args.outpath)
+    p.update_planet(args.outpath, size=args.size)
 
 if __name__ == '__main__':
     main()

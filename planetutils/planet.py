@@ -1,15 +1,20 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, unicode_literals
+from future.standard_library import install_aliases
+install_aliases()
+from urllib.parse import urlparse, urlencode
+from urllib.request import urlopen
+
 import re
 import os
 import subprocess
-import urllib2
 import tempfile
 import json
 
 import boto3
 
-import log
-from bbox import validate_bbox
+from . import log
+from .bbox import validate_bbox
 
 class PlanetBase(object):
     def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):
@@ -22,7 +27,7 @@ class PlanetBase(object):
         return subprocess.check_output(
             args,
             shell=False
-        )
+        ).decode('utf-8')
 
     def osmosis(self, *args):
         return self.command(['osmosis'] + list(args))
@@ -57,14 +62,14 @@ class PlanetExtractor(PlanetBase):
     def extract_bbox(self, name, bbox, workers=1, outpath='.'):
         return self.extract_bboxes({name: bbox}, outpath=outpath, workers=workers)
 
-    def extract_commands(self, bboxes, outpath='.'):
+    def extract_commands(self, bboxes, outpath='.', **kw):
         args = []
         self.command = lambda x:args.append(x)
-        self.extract_bboxes(bboxes, outpath=outpath)
+        self.extract_bboxes(bboxes, outpath=outpath, **kw)
         return args
 
 class PlanetExtractorOsmosis(PlanetExtractor):
-    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.', **kw):
         args = []
         args += ['--read-pbf-fast', self.osmpath, 'workers=%s'%int(workers)]
         args += ['--tee', str(len(bboxes))]
@@ -84,11 +89,11 @@ class PlanetExtractorOsmosis(PlanetExtractor):
         self.osmosis(*args)
 
 class PlanetExtractorOsmconvert(PlanetExtractor):
-    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.', **kw):
         for name, bbox in bboxes.items():
             self.extract_bbox(name, bbox, outpath=outpath)
 
-    def extract_bbox(self, name, bbox, workers=1, outpath='.'):
+    def extract_bbox(self, name, bbox, workers=1, outpath='.', **kw):
         validate_bbox(bbox)
         left, bottom, right, top = bbox
         args = [
@@ -99,7 +104,7 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
         self.osmconvert(*args)
 
 class PlanetExtractorOsmium(PlanetExtractor):
-    def extract_bboxes(self, bboxes, workers=1, outpath='.'):
+    def extract_bboxes(self, bboxes, workers=1, outpath='.', strategy='complete_ways', **kw):
         extracts = []
         for name, bbox in bboxes.items():
             validate_bbox(bbox)
@@ -109,13 +114,12 @@ class PlanetExtractorOsmium(PlanetExtractor):
                 'output_format': 'pbf',
                 'bbox': {'left': left, 'right': right, 'top': top, 'bottom':bottom}
             })
-            print extracts[-1]
         config = {'directory': outpath, 'extracts': extracts}
         path = None
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             json.dump(config, f)
             path = f.name
-        self.command(['osmium', 'extract', '-c', path, self.osmpath])
+        self.command(['osmium', 'extract', '-s', strategy, '-c', path, self.osmpath])
         os.unlink(path)
 
 class PlanetDownloader(PlanetBase):
@@ -169,20 +173,20 @@ class PlanetDownloaderS3(PlanetBase):
 
 
 class PlanetUpdater(PlanetBase):
-    def update_planet(self, outpath, grain='hour', changeset_url=None):
+    def update_planet(self, outpath, grain='hour', changeset_url=None, **kw):
         raise NotImplementedError
 
 class PlanetUpdaterOsmupdate(PlanetBase):
     pass
 
 class PlanetUpdaterOsmium(PlanetBase):
-    def update_planet(self, outpath, grain='minute', changeset_url=None):
+    def update_planet(self, outpath, grain='minute', changeset_url=None, size='1024', **kw):
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
-        self.command(['pyosmium-up-to-date', '-s', '8000', '-v', self.osmpath, '-o', outpath])
+        self.command(['pyosmium-up-to-date', '-s', size, '-v', self.osmpath, '-o', outpath])
 
 class PlanetUpdaterOsmosis(PlanetBase):
-    def update_planet(self, outpath, grain='minute', changeset_url=None):
+    def update_planet(self, outpath, grain='minute', changeset_url=None, **kw):
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
         self.changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain
@@ -199,7 +203,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
             raise Exception('workdir exists and is not a directory: %s'%self.osmosis_workdir)
         try:
             os.makedirs(self.osmosis_workdir)
-        except OSError, e:
+        except OSError as e:
             pass
         self.osmosis(
             '--read-replication-interval-init',
@@ -217,7 +221,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
             return
         timestamp = self.get_timestamp()
         url = 'https://replicate-sequences.osm.mazdermind.de/?%s'%timestamp
-        state = urllib2.urlopen(url).read()
+        state = urlopen(url).read()
         with open(statepath, 'w') as f:
             f.write(state)
 

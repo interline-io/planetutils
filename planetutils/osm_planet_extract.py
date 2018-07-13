@@ -1,8 +1,9 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, unicode_literals, print_function
 import argparse
-from planet import *
-import bbox
-from bbox import bbox_string, load_bboxes_csv
+from .planet import *
+from . import bbox
+from .bbox import bbox_string, load_bboxes_csv
 
 def main():
     parser = argparse.ArgumentParser()
@@ -14,6 +15,7 @@ def main():
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
     parser.add_argument('--toolchain', help='OSM toolchain', default='osmosis')
+    parser.add_argument('--strategy', help='Osmium extract strategy: simple, complete_ways, or smart', default='complete_ways')
     parser.add_argument('--commands', help='Output a command list instead of performing action, e.g. for parallel usage', action='store_true')
     args = parser.parse_args()
 
@@ -40,11 +42,11 @@ def main():
         parser.error('must specify --csv, --geojson, or --bbox and --name')
 
     if args.commands:
-        commands = p.extract_commands(bboxes, outpath=args.outpath)
+        commands = p.extract_commands(bboxes, outpath=args.outpath, strategy=args.strategy)
         for i in commands:
-            print " ".join(i)
+            print(" ".join(i))
     else:
-        p.extract_bboxes(bboxes, outpath=args.outpath)
+        p.extract_bboxes(bboxes, outpath=args.outpath, strategy=args.strategy)
 
 if __name__ == '__main__':
     main()
