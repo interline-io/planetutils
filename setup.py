@@ -17,7 +17,7 @@ setup(name='interline-planetutils',
     author_email='ian@interline.io',
     license='MIT',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['requests','boto3', 'osmium'],
+    install_requires=['future', 'requests','boto3', 'osmium'],
     tests_require=['nose'],
     test_suite = 'nose.collector',
     entry_points={
@@ -35,6 +35,6 @@ setup(name='interline-planetutils',
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2'
+        'Programming Language :: Python :: 2.7'
     ]
 )

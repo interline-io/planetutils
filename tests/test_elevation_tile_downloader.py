@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 import tempfile
 import os
 import types
@@ -15,15 +16,15 @@ class TestElevationTileDownloader(unittest.TestCase):
         e = ElevationTileDownloader('.')
         expect = ('N122', 'N122E037.hgt')
         hgtpath = e.hgtpath(37, 122)
-        self.assertEquals(hgtpath[0], expect[0])
-        self.assertEquals(hgtpath[1], expect[1])
+        self.assertEqual(hgtpath[0], expect[0])
+        self.assertEqual(hgtpath[1], expect[1])
     
     def test_get_bbox_tiles(self):
         e = ElevationTileDownloader('.')
         tiles = e.get_bbox_tiles(CA)
-        self.assertEquals(len(tiles), 154)
+        self.assertEqual(len(tiles), 154)
         tiles = e.get_bbox_tiles([-180,-90,180,90])
-        self.assertEquals(len(tiles), 64800)
+        self.assertEqual(len(tiles), 64800)
     
     def download_bbox(self, e, method, args, expect):
         COUNT = []
@@ -31,7 +32,7 @@ class TestElevationTileDownloader(unittest.TestCase):
             COUNT.append([x,y])
         e.download_hgt = types.MethodType(c, ElevationTileDownloader)
         method(*args)
-        self.assertEquals(len(COUNT), expect)
+        self.assertEqual(len(COUNT), expect)
     
     def test_download_planet(self):
         e = ElevationTileDownloader('.')

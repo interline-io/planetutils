@@ -1,16 +1,17 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, unicode_literals
 import os
 import subprocess
 import math
 
-import download
-import log
-from bbox import validate_bbox
+from . import download
+from . import log
+from .bbox import validate_bbox
 
 def makedirs(path):
     try:
         os.makedirs(path)
-    except OSError, e:
+    except OSError as e:
         pass
 
 class ElevationTileDownloader(object):
@@ -34,8 +35,8 @@ class ElevationTileDownloader(object):
         max_y = int(math.ceil(top))
         expect = (max_x - min_x + 1) * (max_y - min_y + 1)
         tiles = set()
-        for x in xrange(min_x, max_x):
-            for y in xrange(min_y, max_y):
+        for x in range(min_x, max_x):
+            for y in range(min_y, max_y):
                 tiles.add((x,y))
         return tiles
     
