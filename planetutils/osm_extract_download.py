@@ -12,6 +12,7 @@ def main():
     parser.add_argument('id', help='Extract ID')
     # parser.add_argument('--osm-extract-version', help='OSM Extract version', default='latest')
     parser.add_argument('--outpath', help='Output path for Extract; default is <name>.osm.pbf')
+    parser.add_argument('--data-format', help='Download format: pbf or geojson', default='pbf')
     parser.add_argument('--api-token', help='Interline Auth Token; default is read from $INTERLINE_API_TOKEN')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
     args = parser.parse_args()
@@ -19,7 +20,10 @@ def main():
     if args.verbose:
         log.set_verbose()
 
-    outpath = args.outpath or "%s.osm.pbf"%(args.id)
+    defaultpath = "%s.osm.pbf"%(args.id)
+    if args.data_format == "geojson":
+        defaultpath = "%s.geojson"%(args.id)
+    outpath = args.outpath or defaultpath
     if os.path.exists(outpath):
         log.warning("Warning: output path %s already exists."%outpath)
 
@@ -27,6 +31,7 @@ def main():
     downloader.download(
         outpath,
         osm_extract_id=args.id,
+        data_format=args.data_format,
         api_token=args.api_token or os.getenv('INTERLINE_API_TOKEN')
     )
 
