@@ -151,6 +151,8 @@ To download the latest copy of an extract (if `abcd` is your Interline API token
 osm_extract_download --api-token=abcd abidjan_ivory-coast
 ```
 
+You can also download extracts in GeoJSON format by using `--data-format=geojson`. Warning: these can be very large files, but may be useful for filtering and displaying on a web map.
+
 For complete help on command-line arguments:
 
 ```sh
