@@ -21,8 +21,8 @@ def main():
         log.set_verbose()
 
     defaultpath = "%s.osm.pbf"%(args.id)
-    if args.data_format == "geojson":
-        defaultpath = "%s.geojson"%(args.id)
+    if args.data_format != "pbf":
+        defaultpath = "%s.%s"%(args.id, args.data_format)
     outpath = args.outpath or defaultpath
     if os.path.exists(outpath):
         log.warning("Warning: output path %s already exists."%outpath)
