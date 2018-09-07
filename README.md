@@ -57,7 +57,7 @@ PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.o
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.4.0
+docker pull interline/planetutils:release-v0.4.1
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -65,7 +65,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.4.0 <command>
+docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.4.1 <command>
 ```
 
 ### Using Homebrew on Mac OS
