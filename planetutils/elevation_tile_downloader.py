@@ -79,7 +79,7 @@ class ElevationGeotiffDownloader(ElevationDownloader):
     def tilepath(self, z, x, y):
         return map(str, [z, x, str(y)+'.tif'])
 
-class ElevationHGTDownloader(ElevationDownloader):
+class ElevationSkadiDownloader(ElevationDownloader):
     HGT_SIZE = (3601 * 3601 * 2)
     
     def get_bbox_tiles(self, bbox):

@@ -12,12 +12,22 @@ def main():
     parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
+    parser.add_argument('--format', help='Download format', default='geotiff')
+    parser.add_argument('--merge', help='Merge GeoTIFF tiles into output file')
+    parser.add_argument('--resample', help='Resample 16 bit GeoTIFF tiles into 8 bit with given min,max range')
     args = parser.parse_args()
 
     if args.verbose:
         log.set_verbose()
 
-    p = ElevationGeotiffDownloader(args.outpath)
+    if args.format == 'geotiff':
+        p = ElevationGeotiffDownloader(args.outpath)
+    elif args.format == 'skadi':
+        p = ElevationSkadiDownloader(args.outpath)
+    else:
+        print "Unknown format: %s"%args.format
+        sys.exit(1)
+        
     if args.csv:
         p.download_bboxes(load_bboxes_csv(args.csv))
     elif args.bbox:
