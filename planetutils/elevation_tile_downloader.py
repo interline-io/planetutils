@@ -60,7 +60,7 @@ class ElevationDownloader(object):
     def get_bbox_tiles(self, bbox):
         raise NotImplementedError
 
-    def _download(url, op):
+    def _download(self, url, op):
         download.download(url, op)
 
 class ElevationGeotiffDownloader(ElevationDownloader):

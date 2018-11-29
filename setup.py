@@ -27,6 +27,7 @@ setup(name='interline-planetutils',
             'osm_planet_get_timestamp=planetutils.osm_planet_get_timestamp:main',
             'osm_extract_download=planetutils.osm_extract_download:main',
             'elevation_tile_download=planetutils.elevation_tile_download:main',
+            'elevation_tile_merge=planetutils.elevation_tile_merge:main',
             'valhalla_tilepack_download=planetutils.tilepack_download:main',
             'valhalla_tilepack_list=planetutils.tilepack_list:main'
         ],
