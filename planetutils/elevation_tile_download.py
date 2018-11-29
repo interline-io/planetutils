@@ -4,7 +4,7 @@ import argparse
 
 from . import log
 from .bbox import load_bboxes_csv, bbox_string
-from .elevation_tile_downloader import ElevationGeotiffDownloader
+from .elevation_tile_downloader import ElevationGeotiffDownloader, ElevationSkadiDownloader
 
 def main():
     parser = argparse.ArgumentParser()
@@ -13,27 +13,28 @@ def main():
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
     parser.add_argument('--format', help='Download format', default='geotiff')
-    parser.add_argument('--merge', help='Merge GeoTIFF tiles into output file')
-    parser.add_argument('--resample', help='Resample 16 bit GeoTIFF tiles into 8 bit with given min,max range')
+    parser.add_argument('--zoom', help='Zoom level', default=0, type=int)
+
     args = parser.parse_args()
 
     if args.verbose:
         log.set_verbose()
 
     if args.format == 'geotiff':
-        p = ElevationGeotiffDownloader(args.outpath)
+        p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom)
     elif args.format == 'skadi':
         p = ElevationSkadiDownloader(args.outpath)
     else:
         print "Unknown format: %s"%args.format
         sys.exit(1)
-        
+
     if args.csv:
         p.download_bboxes(load_bboxes_csv(args.csv))
     elif args.bbox:
         p.download_bbox(bbox_string(args.bbox))
     else:
         p.download_planet()
+
 
 if __name__ == '__main__':
     main()

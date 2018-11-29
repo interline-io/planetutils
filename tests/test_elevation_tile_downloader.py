@@ -4,7 +4,7 @@ import os
 import types
 import unittest
 
-from planetutils.elevation_tile_downloader import ElevationTileDownloader
+from planetutils.elevation_tile_downloader import ElevationSkadiDownloader, ElevationGeotiffDownloader
 
 CA = [-126.386719,32.157012,-113.532715,42.244785]
 
@@ -13,14 +13,14 @@ class TestElevationTileDownloader(unittest.TestCase):
         pass
         
     def test_hgtpath(self):
-        e = ElevationTileDownloader('.')
+        e = ElevationSkadiDownloader('.')
         expect = ('N122', 'N122E037.hgt')
-        hgtpath = e.hgtpath(37, 122)
+        hgtpath = e.tile_path(0, 37, 122)
         self.assertEqual(hgtpath[0], expect[0])
         self.assertEqual(hgtpath[1], expect[1])
     
     def test_get_bbox_tiles(self):
-        e = ElevationTileDownloader('.')
+        e = ElevationSkadiDownloader('.')
         tiles = e.get_bbox_tiles(CA)
         self.assertEqual(len(tiles), 154)
         tiles = e.get_bbox_tiles([-180,-90,180,90])
@@ -28,31 +28,32 @@ class TestElevationTileDownloader(unittest.TestCase):
     
     def download_bbox(self, e, method, args, expect):
         COUNT = []
-        def c(self, bucket, prefix, x, y):
-            COUNT.append([x,y])
-        e.download_hgt = types.MethodType(c, ElevationTileDownloader)
+        # def c(self, url, op):
+        def c(self, bucket, prefix, z, x, y, suffix=''):
+            COUNT.append([x, y])
+        e.download_tile = types.MethodType(c, ElevationSkadiDownloader)
         method(*args)
         self.assertEqual(len(COUNT), expect)
     
     def test_download_planet(self):
-        e = ElevationTileDownloader('.')
+        e = ElevationSkadiDownloader('.')
         self.download_bbox(e, e.download_planet, [], 64800)
     
     def test_download_bbox(self):
-        e = ElevationTileDownloader('.')
+        e = ElevationSkadiDownloader('.')
         self.download_bbox(e, e.download_bbox, [CA], 154)
     
     def test_download_bbox_found(self):
         d = tempfile.mkdtemp()
-        e = ElevationTileDownloader(d)
+        e = ElevationSkadiDownloader(d)
         # correct size
-        path = e.hgtpath(-119, 37)
+        path = e.tile_path(0, -119, 37)
         os.makedirs(os.path.join(d, path[0]))
         dp1 = os.path.join(d, *path)
         with open(dp1, 'w') as f:
             f.write('0'*e.HGT_SIZE)
         # incorrect size
-        path = e.hgtpath(-119, 36)
+        path = e.tile_path(0, -119, 36)
         os.makedirs(os.path.join(d, path[0]))
         dp2 = os.path.join(d, *path)
         with open(dp2, 'w') as f:
