@@ -70,10 +70,17 @@ class ElevationGeotiffDownloader(ElevationDownloader):
 
     def get_bbox_tiles(self, bbox):
         left, bottom, right, top = validate_bbox(bbox)
+        ybound = 85.0511
+        if bottom <= -ybound:
+            bottom = -ybound
+        if top > ybound:
+            top = ybound
+        if right >= 180:
+            right = 179.999
         size = 2**self.zoom
         xt = lambda x:int((x + 180.0) / 360.0 * size)
         yt = lambda y:int((1.0 - math.log(math.tan(math.radians(y)) + (1 / math.cos(math.radians(y)))) / math.pi) / 2.0 * size)
-        tiles = []
+        tiles = []    
         for x in range(xt(left), xt(right)+1):
             for y in range(yt(top), yt(bottom)+1):
                 tiles.append([self.zoom, x, y])

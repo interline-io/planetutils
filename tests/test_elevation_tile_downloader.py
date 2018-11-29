@@ -8,7 +8,23 @@ from planetutils.elevation_tile_downloader import ElevationSkadiDownloader, Elev
 
 CA = [-126.386719,32.157012,-113.532715,42.244785]
 
-class TestElevationTileDownloader(unittest.TestCase):
+class TestGeotiffDownloader(unittest.TestCase):
+    def test_tile_path(self):
+        e = ElevationGeotiffDownloader('.')
+        expect = ('0', '37', '122.tif')
+        tile_path = e.tile_path(0, 37, 122)
+        self.assertEqual(tile_path[0], expect[0])
+        self.assertEqual(tile_path[1], expect[1])
+        self.assertEqual(tile_path[2], expect[2])
+
+    def test_get_bbox_tiles(self):
+        e = ElevationGeotiffDownloader('.', zoom=8)
+        tiles = e.get_bbox_tiles(CA)
+        self.assertEqual(len(tiles), 100)
+        tiles = e.get_bbox_tiles([-180,-90,180,90])
+        self.assertEqual(len(tiles), 2**16)
+
+class TestElevationSkadiDownloader(unittest.TestCase):
     def test_download_bboxes(self):
         pass
         
