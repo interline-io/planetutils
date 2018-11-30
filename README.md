@@ -85,6 +85,7 @@ If you want to install and use the Python package directly, you'll need to provi
 - [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/)
 - [Osmium Tool](https://osmcode.org/osmium-tool/)
 - [PyOsmium](https://osmcode.org/pyosmium/)
+- [GDAL](https://www.gdal.org/)
 
 Then clone this repo, run the tests, and install the Python package:
 
