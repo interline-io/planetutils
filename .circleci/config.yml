@@ -5,8 +5,5 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Build container
+          name: Build container (which includes running tests)
           command: docker build -t interline-io/planetutils:$CIRCLE_BRANCH .
-      - run:
-          name: Run tests in container
-          command: docker run -it interline-io/planetutils:$CIRCLE_BRANCH python setup.py test
