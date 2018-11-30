@@ -11,7 +11,7 @@ RUN apt-get update -y && apt-get install \
       osmctools \
       osmium-tool \
       pyosmium \
-      gdal \
+      python-gdal \
       awscli \
       software-properties-common \
       -y
