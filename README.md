@@ -22,6 +22,7 @@
   * [osm_extract_download](#osm_extract_download)
   * [osm_planet_get_timestamp](#osm_planet_get_timestamp)
   * [elevation_tile_download](#elevation_tile_download)
+  * [elevation_tile_merge](#elevation_tile_merge)
   * [valhalla_tilepack_list](#valhalla_tilepack_list)
   * [valhalla_tilepack_download](#valhalla_tilepack_download)
 - [Specifying bounding boxes](#specifying-bounding-boxes)
@@ -40,6 +41,7 @@ Python-based scripts and a Docker container to work with planet-scale geographic
 - cut your copy of the OSM planet into named bounding boxes
 - download [OSM Extracts from Interline](https://www.interline.io/osm/extracts/) for popular cities and regions
 - download [Mapzen Terrain Tiles from AWS](https://aws.amazon.com/public-datasets/terrain/) for the planet or your bounding boxes
+- merge and resample Terrain Tiles
 - download [Valhalla Tilepacks from Interline](https://www.interline.io/valhalla/tilepacks) for the planet (subscription required)
 
 PlanetUtils is packaged for use as a:
@@ -85,6 +87,7 @@ If you want to install and use the Python package directly, you'll need to provi
 - [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/)
 - [Osmium Tool](https://osmcode.org/osmium-tool/)
 - [PyOsmium](https://osmcode.org/pyosmium/)
+- [GDAL](https://www.gdal.org/)
 
 Then clone this repo, run the tests, and install the Python package:
 
@@ -173,13 +176,17 @@ osm_planet_get_timestamp planet-latest.osm.pbf
 
 Download elevation tiles from the [Terrain Tiles in the AWS Public Datasets program](https://aws.amazon.com/public-datasets/terrain/). Download for the entire planet, only tiles within a single bounding box, or within multiple bounding boxes.
 
-To download the entire planet of tiles (__which will require about 1.6Tb of space!__):
+Elevation tiles are available in [a variety of formats](https://mapzen.com/documentation/terrain-tiles/formats/). This command supports the download of:
+- GeoTIFF (default): extension `.tif` in Web Mercator projection, 512x512 tiles
+- Skadi: extension `.hgt` in unprojected latlng, 1°x1° tiles
+
+To download the entire planet in Skadi tiles (__which will require about 1.6Tb of space!__):
 
 ```sh
-elevation_tile_download --outpath=data/elevation
+elevation_tile_download --format=skadi --outpath=data/elevation
 ```
 
-To download tiles to cover a single bounding box:
+To download GeoTIFF tiles to cover a single bounding box:
 
 ```sh
 elevation_tile_download --outpath=data/elevation --bbox=-122.737,37.449,-122.011,37.955
@@ -195,6 +202,26 @@ For complete help on command-line arguments:
 
 ```sh
 elevation_tile_download -h
+```
+
+### elevation_tile_merge
+
+After downloading elevation tiles using the `elevation_tile_download` command, use this command to merge together multiple tiles. You can optionally resample elevation values as part of the merge process.
+
+This command only operates on GeoTIFF format elevation tiles.
+
+Warnings: merging lots of tiles can be resource intensive!
+
+To merge a directory of GeoTIFF files:
+
+```sh
+elevation_tile_merge geo_tiff_tiles/ single_tile.tif
+```
+
+For complete help on command-line arguments:
+
+```sh
+elevation_tile_merge -h
 ```
 
 ### valhalla_tilepack_list

@@ -1,11 +1,15 @@
 from __future__ import absolute_import, unicode_literals
 import os
 import subprocess
+import requests
 from . import log
 
 def download(url, outpath):
-    pass
-
+    r = requests.get(url, stream=True)
+    with open(outpath, 'wb') as fd:
+        for chunk in r.iter_content(chunk_size=128):
+            fd.write(chunk)
+    
 def download_gzip(url, outpath):
     with open(outpath, 'wb') as f:
         ps1 = subprocess.Popen(['curl', '-L', '--fail', '-s', url], stdout=subprocess.PIPE)

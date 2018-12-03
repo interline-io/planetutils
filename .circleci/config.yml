@@ -1,16 +1,9 @@
 version: 2
 jobs:
   build:
-    docker:
-      - image: circleci/python:3.6.6
+    machine: true
     steps:
       - checkout
       - run:
-          name: Installing OSM dependencies
-          command: sudo apt-get install osmosis osmctools osmium-tool libboost-python-dev libexpat1-dev zlib1g-dev libbz2-dev
-      - run:
-          name: Installing Python package and dependencies
-          command: pip install --user .
-      - run:
-          name: Running tests
-          command: python setup.py test
+          name: Build container (which includes running tests)
+          command: docker build -t interline-io/planetutils:$CIRCLE_BRANCH .

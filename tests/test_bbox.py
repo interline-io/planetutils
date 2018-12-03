@@ -22,7 +22,7 @@ class TestValidateBbox(unittest.TestCase):
         self.assertRaises(AssertionError, bbox.validate_bbox, (0,0,-180,0))
         self.assertRaises(AssertionError, bbox.validate_bbox, (0,90,0,0))
         self.assertRaises(AssertionError, bbox.validate_bbox, (0,0,0,-90))
-    
+
     def test_returns_array(self):
         self.assertEqual(bbox.validate_bbox([1,2,3,4]), [1.0, 2.0, 3.0, 4.0])
 
@@ -39,7 +39,7 @@ class TestLoadBboxesCsv(unittest.TestCase):
 class TestBboxString(unittest.TestCase):
     def test_returns_array(self):
         self.assertEqual(bbox.bbox_string('1.0,2.0,3.0,4.0'), [1.0,2.0,3.0,4.0])
-    
+
     def test_validates(self):
         self.assertRaises(AssertionError, bbox.bbox_string, ('10,-10,20,-20'))
 
