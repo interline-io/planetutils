@@ -13,7 +13,6 @@ class TestGeotiffDownloader(unittest.TestCase):
         e = ElevationGeotiffDownloader('.')
         expect = ('0', '37', '122.tif')
         tile_path = e.tile_path(0, 37, 122)
-        print(tile_path)
         self.assertEqual(tile_path[0], expect[0])
         self.assertEqual(tile_path[1], expect[1])
         self.assertEqual(tile_path[2], expect[2])
