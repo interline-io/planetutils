@@ -5,10 +5,8 @@ from urllib.parse import urlparse, urlencode
 from urllib.request import urlopen
 
 import os
-import urlparse
 import subprocess
 import json
-
 
 from . import log
 from . import download

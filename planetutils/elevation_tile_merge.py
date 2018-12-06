@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals
+from __future__ import absolute_import, unicode_literals, print_function
 import argparse
 import sys
 import fnmatch
@@ -20,7 +20,7 @@ def main():
     tmppath = args.outpath
 
     if args.scale and len(args.scale.split(',')) != 2:
-        print "Must provide min, max values"
+        print("Must provide min, max values")
         sys.exit(1)
     elif args.scale:
         # Output to tmp file
@@ -32,22 +32,22 @@ def main():
             matches.append(os.path.join(root, filename))
 
     if len(matches) == 0:
-        print "No input files"
+        print("No input files")
         sys.exit(0)
 
-    print "Found %s files:"%len(matches)
+    print("Found %s files:"%len(matches))
     for i in matches:
-        print "\t%s"%(i)
+        print("\t%s"%(i))
 
     # gdal_merge.py -init 0 -o out.tif
-    print "Merging... %s"%(tmppath)
+    print("Merging... %s"%(tmppath))
     cmd = ['gdal_merge.py', '-init', '0', '-o', tmppath]
     cmd += matches
     p = subprocess.check_call(cmd)
 
     # gdal_translate -of GTiff -ot Byte -scale 0 255 0 255 out.tif out8.tif
     if args.scale:
-        print "Scaling: %s -> %s"%(tmppath, outpath)
+        print("Scaling: %s -> %s"%(tmppath, outpath))
         a = args.scale.split(",")
         cmd = ['gdal_translate', '-of', 'GTiff', '-ot', 'Byte', '-scale', a[0], a[1], '0', '255', tmppath, outpath]
         subprocess.check_call(cmd)
