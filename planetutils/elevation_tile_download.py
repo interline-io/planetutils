@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import absolute_import, unicode_literals, print_function
 import argparse
+import sys
 
 from . import log
 from .bbox import load_bboxes_csv, bbox_string
