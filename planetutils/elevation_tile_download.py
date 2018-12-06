@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals
+from __future__ import absolute_import, unicode_literals, print_function
 import argparse
 
 from . import log
@@ -25,7 +25,7 @@ def main():
     elif args.format == 'skadi':
         p = ElevationSkadiDownloader(args.outpath)
     else:
-        print "Unknown format: %s"%args.format
+        print("Unknown format: %s"%args.format)
         sys.exit(1)
 
     if args.csv:
