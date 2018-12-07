@@ -3,8 +3,8 @@ LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.i
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && apt-get install \
-      python \
-      python-pip \
+      python3 \
+      python3-pip \
       pypy-setuptools \
       curl \
       osmosis \
@@ -23,8 +23,8 @@ RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
 
 WORKDIR /app
 COPY . /app
-RUN python setup.py test
-RUN pip install .
+RUN python3 setup.py test
+RUN pip3 install .
 
 COPY planetutils.sh /scripts/planetutils.sh
 
