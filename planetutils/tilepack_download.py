@@ -4,7 +4,6 @@ import os
 import argparse
 
 from . import log
-from . import tilepack
 from .bbox import bbox_string, load_bboxes_csv
 from .tilepack_downloader import TilepackDownloader
 

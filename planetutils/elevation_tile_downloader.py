@@ -87,7 +87,7 @@ class ElevationGeotiffDownloader(ElevationDownloader):
         return tiles
 
     def tile_path(self, z, x, y):
-        return map(str, [z, x, str(y)+'.tif'])
+        return list(map(str, [z, x, str(y)+'.tif']))
 
 class ElevationSkadiDownloader(ElevationDownloader):
     HGT_SIZE = (3601 * 3601 * 2)
