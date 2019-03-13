@@ -1,7 +1,7 @@
 from __future__ import absolute_import, unicode_literals, print_function
 from future.standard_library import install_aliases
 install_aliases()
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, parse_qs
 from urllib.request import urlopen
 
 import os
@@ -19,15 +19,15 @@ class TilepackDownloader(object):
         if version == 'latest':
             url = '%s/valhalla_planet_tilepacks/download_latest'%(self.HOST)
         # Make url
-        u = list(urlparse.urlsplit(url))
-        q = urlparse.parse_qs(u[3])
+        u = list(urlsplit(url))
+        q = parse_qs(u[3])
         if api_token:
             q['api_token'] = api_token
         u[3] = urlencode(q)
-        url = urlparse.urlunsplit(u)
+        url = urlunsplit(u)
         # Download
         download.download_curl(url, outpath, compressed=compressed)
-   
+
     def list(self):
         url = "%s/valhalla_planet_tilepacks.json"%(self.HOST)
         contents = urlopen(url).read()
