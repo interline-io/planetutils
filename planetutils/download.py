@@ -30,7 +30,7 @@ def download_curl(url, outpath, compressed=False):
     out, err = p.communicate()
     e = p.wait()
     if e != 0:
-        raise Exception("Error downloading: %s"%err.split("curl:")[-1])
+        raise Exception("Error downloading")
     else:
         log.info("Done")
         

@@ -130,6 +130,7 @@ class PlanetDownloaderHttp(PlanetBase):
     def _download(self, url, outpath):
         subprocess.check_output([
             'curl',
+            '-L',
             '-o', outpath,
             url
         ])
