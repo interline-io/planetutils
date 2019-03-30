@@ -4,7 +4,7 @@ set -e
 OSM_PLANET=${OSM_PLANET:-"planet-latest.osm.pbf"}
 OSM_PLANET_TMP=${OSM_PLANET_TMP:-"planet-new.osm.pbf"}
 OSM_TOOLCHAIN=${OSM_TOOLCHAIN:-"osmium"}
-OSM_UPDATE_MEMORY=${OSM_PLANET_MEMORY:-"1024"}
+OSM_UPDATE_MEMORY=${OSM_UPDATE_MEMORY:-"1024"}
 
 osm_planet_update --toolchain=${OSM_TOOLCHAIN} --size=${OSM_UPDATE_MEMORY} ${OSM_PLANET} ${OSM_PLANET_TMP}
 mv ${OSM_PLANET_TMP} ${OSM_PLANET}
