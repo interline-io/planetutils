@@ -215,7 +215,7 @@ Warnings: merging lots of tiles can be resource intensive!
 To merge a directory of GeoTIFF files:
 
 ```sh
-elevation_tile_merge geo_tiff_tiles/ single_tile.tif
+elevation_tile_merge single_tile.tif geo_tiff_tiles/
 ```
 
 For complete help on command-line arguments:
