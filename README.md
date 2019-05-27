@@ -186,10 +186,10 @@ To download the entire planet in Skadi tiles (__which will require about 1.6Tb o
 elevation_tile_download --format=skadi --outpath=data/elevation
 ```
 
-To download GeoTIFF tiles to cover a single bounding box:
+To download GeoTIFF tiles to cover a single bounding box at a specified zoom level:
 
 ```sh
-elevation_tile_download --outpath=data/elevation --bbox=-122.737,37.449,-122.011,37.955
+elevation_tile_download --outpath=data/elevation --bbox=-122.737,37.449,-122.011,37.955 --zoom=10
 ```
 
 To specify more than one bounding box of tiles to download, list the bounding boxes in a [CSV file or GeoJSON file](#bounding-box). For example:
