@@ -89,7 +89,11 @@ def load_features_geojson(path):
         raise Exception('file does not exist: %s'%path)
     with open(path) as f:
         data = json.load(f)
-    features = data.get('features', [])
+    # check if this is a single feature
+    if data.get('type') == 'FeatureCollection':
+        features = data.get('features', [])
+    else:
+        features = [data]
     bboxes = {}
     for count,feature in enumerate(features):
         key = feature.get('properties',{}).get('id') or feature.get('id') or count
