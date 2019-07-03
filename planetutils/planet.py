@@ -114,17 +114,14 @@ class PlanetExtractorOsmium(PlanetExtractor):
                 'output': '%s.osm.pbf'%name,
                 'output_format': 'pbf',
             }
-            gt = bbox.geometry.get('type')
-            if gt == 'LineString':
+            if bbox.is_rectangle():
                 left, bottom, right, top = bbox.bbox()
                 ext['bbox'] = {'left': left, 'right': right, 'top': top, 'bottom':bottom}
-            elif gt == 'Polygon':
-                ext['polygon'] = bbox.geometry.get('coordinates', [])
-            elif gt == 'MultiPolygon':
-                ext['multipolygon'] = bbox.geometry.get('coordinates', [])
             else:
-                raise Exception('unknown geometry type for extract')
+                ftype = bbox.geometry.get('type', '').lower()
+                ext[ftype] = bbox.geometry.get('coordinates', [])
             extracts.append(ext)
+            print(ext)
         config = {'directory': outpath, 'extracts': extracts}
         path = None
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:

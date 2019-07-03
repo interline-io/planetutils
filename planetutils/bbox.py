@@ -43,7 +43,10 @@ class Feature(object):
         }
 
     def is_rectangle(self):
-        pass
+        fc = flatcoords(self.geometry.get('coordinates', []))
+        lons = set([i[0] for i in fc])
+        lats = set([i[1] for i in fc])
+        return len(lons) <= 2 and len(lats) <= 2
 
     # act like [left, bottom, right, top]
     def __getitem__(self, item):
