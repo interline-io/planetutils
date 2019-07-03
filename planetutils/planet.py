@@ -121,7 +121,6 @@ class PlanetExtractorOsmium(PlanetExtractor):
                 ftype = bbox.geometry.get('type', '').lower()
                 ext[ftype] = bbox.geometry.get('coordinates', [])
             extracts.append(ext)
-            print(ext)
         config = {'directory': outpath, 'extracts': extracts}
         path = None
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
