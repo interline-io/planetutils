@@ -4,7 +4,6 @@ import os
 import argparse
 
 from . import log
-from .bbox import bbox_string, load_bboxes_csv
 from .osm_extract_downloader import OsmExtractDownloader
 
 def main():

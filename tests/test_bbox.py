@@ -8,6 +8,97 @@ import planetutils.bbox as bbox
 CA = [-126.38,32.15,-113.53,42.24]
 TESTGEOJSON = os.path.join('.','examples','test.geojson')
 
+
+class TestFeature(unittest.TestCase):
+    def test_is_rectangle(self):
+        feat = bbox.Feature(geometry={
+            "type": "LineString",
+            "coordinates": [
+                [30, 10], [20, 40]
+            ]
+        })
+        self.assertEqual(feat.is_rectangle(), True)
+
+    def test_is_rectangle_set(self):
+        feat = bbox.Feature()
+        feat.set_bbox([-122.42400169372557, 37.7860125252054, -
+                      122.40559101104735, 37.7985943621788])
+        self.assertEqual(feat.is_rectangle(), True)
+
+    def test_is_rectangle_polygon(self):
+        feat = bbox.Feature(geometry={
+            "coordinates": [
+                [
+                    [
+                        -123.64,
+                        36.791
+                    ],
+                    [
+                        -123.64,
+                        38.719
+                    ],
+                    [
+                        -121.025,
+                        38.719
+                    ],
+                    [
+                        -121.025,
+                        36.791
+                    ],
+                    [
+                        -123.64,
+                        36.791
+                    ]
+                ]
+            ],
+            "type": "Polygon"
+        })
+        self.assertEqual(feat.is_rectangle(), True)
+
+    def test_is_rectangle_polygon2(self):
+        geometry={
+            "coordinates": [
+                [
+                    [
+                        -74.501,
+                        40.345
+                    ],
+                    [
+                        -74.501,
+                        41.097
+                    ],
+                    [
+                        -73.226,
+                        41.097
+                    ],
+                    [
+                        -73.226,
+                        40.345
+                    ],
+                    [
+                        -74.501,
+                        40.345
+                    ]
+                ]
+            ],
+            "type": "Polygon"
+        }
+        feat = bbox.Feature(geometry=geometry)
+        self.assertEqual(feat.is_rectangle(), True)
+
+
+    def test_is_not_rectangle(self):
+        feat = bbox.Feature(geometry={
+            "type": "Polygon",
+            "coordinates": [
+                [[30, 10], [40, 40], [20, 40], [10, 20], [30, 10]]
+            ]
+        })
+        self.assertEqual(feat.is_rectangle(), False)
+    
+
+
+
 class TestValidateBbox(unittest.TestCase):
     def test_bounds(self):
         # bounds
@@ -34,24 +125,80 @@ class TestLoadBboxesCsv(unittest.TestCase):
             CA[0], CA[1], CA[2], CA[3]
         ))
         f.close()
-        self.assertEqual(bbox.load_bboxes_csv(f.name)['CA'], CA)
+        bboxes = bbox.load_features_csv(f.name)
+        feat = bboxes['CA']
+        self.assertEqual(feat.bbox(), CA)
 
 class TestBboxString(unittest.TestCase):
     def test_returns_array(self):
-        self.assertEqual(bbox.bbox_string('1.0,2.0,3.0,4.0'), [1.0,2.0,3.0,4.0])
+        feat = bbox.load_feature_string('1.0,2.0,3.0,4.0')
+        self.assertEqual(feat.bbox(), [1.0,2.0,3.0,4.0])
 
     def test_validates(self):
-        self.assertRaises(AssertionError, bbox.bbox_string, ('10,-10,20,-20'))
+        self.assertRaises(AssertionError, bbox.load_feature_string, ('10,-10,20,-20'))
 
 class TestLoadBboxGeojson(unittest.TestCase):
     def test_load(self):
-        bboxes = bbox.load_bboxes_geojson(TESTGEOJSON)
+        feats = bbox.load_features_geojson(TESTGEOJSON)
         union = (-122.42400169372557, 37.7860125252054, -122.40559101104735, 37.7985943621788)
         pentagon = (-122.39975452423094, 37.78370618798191, -122.38949775695801, 37.791879793952084)
-        for a,b in zip(bboxes['union'], union):
+        for a,b in zip(feats['union'].bbox(), union):
             self.assertAlmostEqual(a,b)
-        for a,b in zip(bboxes['pentagon'], pentagon):
+        for a,b in zip(feats['pentagon'].bbox(), pentagon):
             self.assertAlmostEqual(a,b)
+
+class TestFlatcoords(unittest.TestCase):
+    def test_point(self):
+        c = [30, 10]
+        exp = [[30, 10]]
+        self.assertEqual(bbox.flatcoords(c), exp)
+
+    def test_linestring(self):
+        c = [
+            [30, 10], [10, 30], [40, 40]
+        ]
+        exp = [[30, 10], [10, 30], [40, 40]]
+        self.assertEqual(bbox.flatcoords(c), exp)
+
+    def test_polygon(self):
+        c = [
+            [[35, 10], [45, 45], [15, 40], [10, 20], [35, 10]],
+            [[20, 30], [35, 35], [30, 20], [20, 30]]
+        ]
+        fc = bbox.flatcoords(c)
+        exp = [[35, 10], [45, 45], [15, 40], [10, 20], [35, 10], [20, 30], [35, 35], [30, 20], [20, 30]]
+        self.assertEqual(fc, exp)
+
+    def test_multipoint(self):
+        c = [
+            [10, 40], [40, 30], [20, 20], [30, 10]
+        ]
+        fc = bbox.flatcoords(c)
+        exp = [[10, 40], [40, 30], [20, 20], [30, 10]]
+        self.assertEqual(fc, exp)
+
+    def test_multilinestring(self):
+        c = [
+            [[10, 10], [20, 20], [10, 40]],
+            [[40, 40], [30, 30], [40, 20], [30, 10]]
+        ]
+        fc = bbox.flatcoords(c)
+        exp = [[10, 10], [20, 20], [10, 40], [40, 40], [30, 30], [40, 20], [30, 10]]
+        self.assertEqual(fc, exp)
+
+    def test_multipolygon(self):
+        c = [
+            [
+                [[40, 40], [20, 45], [45, 30], [40, 40]]
+            ],
+            [
+                [[20, 35], [10, 30], [10, 10], [30, 5], [45, 20], [20, 35]],
+                [[30, 20], [20, 15], [20, 25], [30, 20]]
+            ]
+        ]
+        fc = bbox.flatcoords(c)
+        exp = [[40, 40], [20, 45], [45, 30], [40, 40], [20, 35], [10, 30], [10, 10], [30, 5], [45, 20], [20, 35], [30, 20], [20, 15], [20, 25], [30, 20]]
+        self.assertEqual(fc, exp)
 
 if __name__ == '__main__':
     unittest.main()

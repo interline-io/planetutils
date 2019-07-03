@@ -4,6 +4,55 @@ import json
 import os
 import csv
 
+def flatcoords(coords, fc=None):
+    if fc is None:
+        fc = []
+    try:
+        coords[0][0] # check if iterable of iterables
+        for c in coords:
+            flatcoords(c, fc)
+    except:
+        fc.append(coords)
+    return fc
+
+class Feature(object):
+    def __init__(self, properties=None, geometry=None, **kwargs):
+        self.properties = properties or {}
+        self.geometry = geometry or {}
+        if not self.geometry:
+            self.set_bbox([0.0, 0.0, 0.0, 0.0])
+
+    def bbox(self):
+        gt = self.geometry.get('type')
+        coords = self.geometry.get('coordinates', [])
+        fc = flatcoords(coords)
+        lons = [i[0] for i in fc]
+        lats = [i[1] for i in fc]
+        left, right = min(lons), max(lons)
+        bottom, top = min(lats), max(lats)
+        return validate_bbox([left, bottom, right, top])
+
+    def set_bbox(self, bbox):
+        left, bottom, right, top = validate_bbox(bbox)
+        self.geometry = {
+            "type": "LineString",
+            "coordinates": [
+                [left, bottom],
+                [right, top],
+            ]
+        }
+
+    def is_rectangle(self):
+        fc = flatcoords(self.geometry.get('coordinates', []))
+        lons = set([i[0] for i in fc])
+        lats = set([i[1] for i in fc])
+        return len(lons) <= 2 and len(lats) <= 2
+
+    # act like [left, bottom, right, top]
+    def __getitem__(self, item):
+        return self.bbox()[item] 
+
+
 def validate_bbox(bbox):
     left, bottom, right, top = map(float, bbox)
     assert -180 <= left <= 180
@@ -14,10 +63,12 @@ def validate_bbox(bbox):
     assert right >= left
     return [left, bottom, right, top]
 
-def bbox_string(bbox):
-    return validate_bbox(bbox.split(','))
-
-def load_bboxes_csv(csvpath):
+def load_feature_string(bbox):
+    f = Feature()
+    f.set_bbox(bbox.split(','))
+    return f
+    
+def load_features_csv(csvpath):
     # bbox csv format:
     # name, left, bottom, right, top
     if not os.path.exists(csvpath):
@@ -26,31 +77,25 @@ def load_bboxes_csv(csvpath):
     with open(csvpath) as f:
         reader = csv.reader(f)
         for row in reader:
-            bboxes[row[0]] = validate_bbox(row[1:])
+            if len(row) != 5:
+                raise Exception('5 columns required')
+            f = Feature()
+            f.set_bbox(row[1:])
+            bboxes[row[0]] = f
     return bboxes
 
-def load_bboxes_geojson(path):
+def load_features_geojson(path):
     if not os.path.exists(path):
         raise Exception('file does not exist: %s'%path)
     with open(path) as f:
         data = json.load(f)
-    return feature_bboxes(data.get('features',[]))
-
-def feature_bboxes(features):
+    # check if this is a single feature
+    if data.get('type') == 'FeatureCollection':
+        features = data.get('features', [])
+    else:
+        features = [data]
     bboxes = {}
     for count,feature in enumerate(features):
         key = feature.get('properties',{}).get('id') or feature.get('id') or count
-        bbox = feature_bbox(feature)
-        bboxes[key] = bbox
+        bboxes[key] = Feature(**feature)
     return bboxes
-
-def feature_bbox(feature):
-    g = feature.get('geometry',{})
-    if g.get('type') != 'Polygon':
-        raise Exception('Only Polygon geometries are supported')
-    coords = g.get('coordinates',[])[0]
-    lons = [i[0] for i in coords]
-    lats = [i[1] for i in coords]
-    left, right = min(lons), max(lons)
-    bottom, top = min(lats), max(lats)
-    return validate_bbox([left, bottom, right, top])

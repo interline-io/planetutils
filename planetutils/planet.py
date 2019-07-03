@@ -11,10 +11,13 @@ import subprocess
 import tempfile
 import json
 
-import boto3
-
 from . import log
 from .bbox import validate_bbox
+
+try:
+    import boto3
+except ImportError:
+    boto3 = None
 
 class PlanetBase(object):
     def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):
@@ -106,14 +109,18 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
 class PlanetExtractorOsmium(PlanetExtractor):
     def extract_bboxes(self, bboxes, workers=1, outpath='.', strategy='complete_ways', **kw):
         extracts = []
-        for name, bbox in bboxes.items():
-            validate_bbox(bbox)
-            left, bottom, right, top = bbox
-            extracts.append({
+        for name, bbox in bboxes.items():            
+            ext = {
                 'output': '%s.osm.pbf'%name,
                 'output_format': 'pbf',
-                'bbox': {'left': left, 'right': right, 'top': top, 'bottom':bottom}
-            })
+            }
+            if bbox.is_rectangle():
+                left, bottom, right, top = bbox.bbox()
+                ext['bbox'] = {'left': left, 'right': right, 'top': top, 'bottom':bottom}
+            else:
+                ftype = bbox.geometry.get('type', '').lower()
+                ext[ftype] = bbox.geometry.get('coordinates', [])
+            extracts.append(ext)
         config = {'directory': outpath, 'extracts': extracts}
         path = None
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
@@ -159,10 +166,14 @@ class PlanetDownloaderS3(PlanetBase):
         self._download(planet.bucket_name, planet.key)
 
     def _download(self, bucket_name, key):
+        if not boto3:
+            raise Exception('please install boto3')
         s3 = boto3.client('s3')
         s3.download_file(bucket_name, key, self.osmpath)
 
     def _get_planets(self, bucket, prefix, match):
+        if not boto3:
+            raise Exception('please install boto3')
         r = re.compile(match)
         s3 = boto3.resource('s3')
         s3bucket = s3.Bucket(bucket)
