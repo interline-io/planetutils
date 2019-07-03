@@ -11,10 +11,13 @@ import subprocess
 import tempfile
 import json
 
-import boto3
-
 from . import log
 from .bbox import validate_bbox
+
+try:
+    import boto3
+except ImportError:
+    boto3 = None
 
 class PlanetBase(object):
     def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):
@@ -167,10 +170,14 @@ class PlanetDownloaderS3(PlanetBase):
         self._download(planet.bucket_name, planet.key)
 
     def _download(self, bucket_name, key):
+        if not boto3:
+            raise Exception('please install boto3')
         s3 = boto3.client('s3')
         s3.download_file(bucket_name, key, self.osmpath)
 
     def _get_planets(self, bucket, prefix, match):
+        if not boto3:
+            raise Exception('please install boto3')
         r = re.compile(match)
         s3 = boto3.resource('s3')
         s3bucket = s3.Bucket(bucket)
