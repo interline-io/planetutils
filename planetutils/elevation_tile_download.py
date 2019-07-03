@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from . import log
-from .bbox import load_bboxes_csv, bbox_string
+from .bbox import load_features_csv, load_feature_string
 from .elevation_tile_downloader import ElevationGeotiffDownloader, ElevationSkadiDownloader
 
 def main():
@@ -30,9 +30,9 @@ def main():
         sys.exit(1)
 
     if args.csv:
-        p.download_bboxes(load_bboxes_csv(args.csv))
+        p.download_bboxes(load_features_csv(args.csv))
     elif args.bbox:
-        p.download_bbox(bbox_string(args.bbox))
+        p.download_bbox(load_feature_string(args.bbox))
     else:
         p.download_planet()
 

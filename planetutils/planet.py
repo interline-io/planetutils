@@ -106,14 +106,22 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
 class PlanetExtractorOsmium(PlanetExtractor):
     def extract_bboxes(self, bboxes, workers=1, outpath='.', strategy='complete_ways', **kw):
         extracts = []
-        for name, bbox in bboxes.items():
-            validate_bbox(bbox)
-            left, bottom, right, top = bbox
-            extracts.append({
+        for name, bbox in bboxes.items():            
+            ext = {
                 'output': '%s.osm.pbf'%name,
                 'output_format': 'pbf',
-                'bbox': {'left': left, 'right': right, 'top': top, 'bottom':bottom}
-            })
+            }
+            gt = bbox.geometry.get('type')
+            if gt == 'LineString':
+                left, bottom, right, top = bbox.bbox()
+                ext['bbox'] = {'left': left, 'right': right, 'top': top, 'bottom':bottom}
+            elif gt == 'Polygon':
+                ext['polygon'] = bbox.geometry.get('coordinates', [])
+            elif gt == 'MultiPolygon':
+                ext['multipolygon'] = bbox.geometry.get('coordinates', [])
+            else:
+                raise Exception('unknown geometry type for extract')
+            extracts.append(ext)
         config = {'directory': outpath, 'extracts': extracts}
         path = None
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:

@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals, print_function
 import argparse
 from .planet import *
 from . import bbox
-from .bbox import bbox_string, load_bboxes_csv
+from .bbox import load_feature_string, load_features_csv
 
 def main():
     parser = argparse.ArgumentParser()
@@ -33,11 +33,11 @@ def main():
 
     bboxes = {}
     if args.csv:
-        bboxes = bbox.load_bboxes_csv(args.csv)        
+        bboxes = bbox.load_features_csv(args.csv)        
     elif args.geojson:
-        bboxes = bbox.load_bboxes_geojson(args.geojson)
+        bboxes = bbox.load_features_geojson(args.geojson)
     elif (args.bbox and args.name):
-        bboxes[args.name] = bbox.bbox_string(args.bbox)
+        bboxes[args.name] = bbox.load_feature_string(args.bbox)
     else:
         parser.error('must specify --csv, --geojson, or --bbox and --name')
 
