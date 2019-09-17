@@ -24,7 +24,7 @@ RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
 WORKDIR /app
 COPY . /app
 RUN python3 setup.py test
-RUN pip3 install .
+RUN pip3 install . && pip3 install boto3
 
 COPY planetutils.sh /scripts/planetutils.sh
 
