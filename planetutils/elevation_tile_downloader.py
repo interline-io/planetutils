@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 from __future__ import absolute_import, unicode_literals
 
-import concurrent
 import os
 import math
+
+import urllib3
 from retry import retry
 from concurrent import futures
-from multiprocessing.pool import ThreadPool
-from urllib.request import urlopen
+
+from urllib3 import Timeout
 
 from planetutils import download
 from planetutils import log
@@ -21,6 +22,8 @@ def makedirs(path):
 
 class ElevationDownloader(object):
     zoom = 0
+    timeout = Timeout(connect=3.0, read=7.0)
+    http = urllib3.PoolManager(maxsize=50, timeout=timeout)
 
     def __init__(self, outpath='.'):
         self.outpath = outpath
@@ -80,15 +83,14 @@ class ElevationDownloader(object):
     def _download(self, url, op):
         download.download(url, op)
 
-    @staticmethod
     @retry(exceptions=Exception, tries=5, delay=2, backoff=2, logger=log)
-    def _download_multi(url_op):
+    def _download_multi(self, url_op):
         url, op = url_op
         log.info("downloading %s to %s" % (url, op))
-        request = urlopen(url, timeout=10)
+        request = self.http.request('GET', url)
         with open(op, 'wb') as f:
             try:
-                f.write(request.read())
+                f.write(request.data)
             except Exception as exc:
                 raise Exception("Error downloading %r - %s", (url, exc))
 
