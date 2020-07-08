@@ -10,6 +10,7 @@ from .elevation_tile_downloader import ElevationGeotiffDownloader, ElevationSkad
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--outpath', help='Output path for elevation tiles.', default='.')
+    parser.add_argument('--existpath', help='Directory to check for existing files.', default=None)
     parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
@@ -22,7 +23,7 @@ def main():
         log.set_verbose()
 
     if args.format == 'geotiff':
-        p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom)
+        p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom, exist_path=args.existpath)
     elif args.format == 'skadi':
         p = ElevationSkadiDownloader(args.outpath)
     else:
