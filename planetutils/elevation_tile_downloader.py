@@ -14,11 +14,13 @@ from planetutils import download
 from planetutils import log
 from planetutils.bbox import validate_bbox
 
+
 def makedirs(path):
     try:
         os.makedirs(path)
     except OSError as e:
         pass
+
 
 class ElevationDownloader(object):
     zoom = 0
@@ -39,12 +41,13 @@ class ElevationDownloader(object):
         tiles = self.get_bbox_tiles(bbox)
         found = set()
         download = set()
+        for root, dirs, files in os.walk(self.outpath):
+            path = root.split(os.sep)
+            for file in files:
+                if '.tif' in file:
+                    found.add("%s/%s/%s" % (path[-2], path[-1], file.split('.')[0]))
         for z, x, y in tiles:
-            od = self.tile_path(z, x, y)
-            op = os.path.join(self.outpath, *od)
-            if self.tile_exists(op):
-                found.add((x, y))
-            else:
+            if '%s/%s/%s' % (z, y, x) not in found:
                 download.add((x, y))
         log.info("found %s tiles; %s to download" % (len(found), len(download)))
         tasks = {self._tile_url_path(bucket, prefix, self.zoom, x, y) for x, y in sorted(download)}

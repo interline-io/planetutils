@@ -7,6 +7,7 @@ from . import log
 from .bbox import load_features_csv, load_feature_string
 from .elevation_tile_downloader import ElevationGeotiffDownloader, ElevationSkadiDownloader
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--outpath', help='Output path for elevation tiles.', default='.')
@@ -26,7 +27,7 @@ def main():
     elif args.format == 'skadi':
         p = ElevationSkadiDownloader(args.outpath)
     else:
-        print("Unknown format: %s"%args.format)
+        print("Unknown format: %s" % args.format)
         sys.exit(1)
 
     if args.csv:

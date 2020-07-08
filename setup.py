@@ -17,7 +17,7 @@ setup(name='interline-planetutils',
     author_email='ian@interline.io',
     license='MIT',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['future', 'requests', 'retry'], #, 'osmium', 'boto3'
+    install_requires=['future', 'requests', 'retry'],  #, 'osmium', 'boto3', 'gdal'
     tests_require=['nose'],
     test_suite = 'nose.collector',
     entry_points={
@@ -28,6 +28,7 @@ setup(name='interline-planetutils',
             'osm_extract_download=planetutils.osm_extract_download:main',
             'elevation_tile_download=planetutils.elevation_tile_download:main',
             'elevation_tile_merge=planetutils.elevation_tile_merge:main',
+            'elevation_tile_terrain=planetutils.elevation_tile_terrain:main',
             'valhalla_tilepack_download=planetutils.tilepack_download:main',
             'valhalla_tilepack_list=planetutils.tilepack_list:main'
         ],
