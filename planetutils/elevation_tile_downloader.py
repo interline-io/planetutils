@@ -27,8 +27,9 @@ class ElevationDownloader(object):
     timeout = Timeout(connect=3.0, read=7.0)
     http = urllib3.PoolManager(maxsize=50, timeout=timeout)
 
-    def __init__(self, outpath='.'):
+    def __init__(self, outpath='.', exist_path=None):
         self.outpath = outpath
+        self.exist_path = exist_path
 
     def download_planet(self):
         self.download_bbox([-180, -90, 180, 90])
@@ -41,7 +42,8 @@ class ElevationDownloader(object):
         tiles = self.get_bbox_tiles(bbox)
         found = set()
         download = set()
-        for root, dirs, files in os.walk(self.outpath):
+        exist_dir = self.exist_path if self.exist_path else self.outpath
+        for root, dirs, files in os.walk(exist_dir):
             path = root.split(os.sep)
             for file in files:
                 if '.tif' in file:
