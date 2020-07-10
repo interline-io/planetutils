@@ -38,7 +38,7 @@ class ElevationDownloader(object):
         for name, bbox in bboxes.items():
             self.download_bbox(bbox)
 
-    def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='geotiff'):
+    def filter_needed(self, bbox):
         tiles = self.get_bbox_tiles(bbox)
         found = set()
         download = set()
@@ -52,7 +52,11 @@ class ElevationDownloader(object):
             if '%s/%s/%s' % (z, x, y) not in found:
                 download.add((x, y))
         log.info("found %s tiles; %s to download" % (len(found), len(download)))
-        tasks = {self._tile_url_path(bucket, prefix, self.zoom, x, y) for x, y in sorted(download)}
+        return download
+
+    def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='geotiff'):
+        download = self.filter_needed(bbox)
+        tasks = {self._tile_url_path(bucket, prefix, self.zoom, x, y) for x, y in download}
 
         with futures.ThreadPoolExecutor() as executor:
             # Start the load operations and mark each future with its URL
