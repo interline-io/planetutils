@@ -49,7 +49,7 @@ class ElevationDownloader(object):
                 if '.tif' in file:
                     found.add("%s/%s/%s" % (path[-2], path[-1], file.split('.')[0]))
         for z, x, y in tiles:
-            if '%s/%s/%s' % (z, y, x) not in found:
+            if '%s/%s/%s' % (z, x, y) not in found:
                 download.add((x, y))
         log.info("found %s tiles; %s to download" % (len(found), len(download)))
         tasks = {self._tile_url_path(bucket, prefix, self.zoom, x, y) for x, y in sorted(download)}
