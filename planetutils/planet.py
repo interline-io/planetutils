@@ -193,9 +193,10 @@ class PlanetUpdaterOsmupdate(PlanetBase):
 
 class PlanetUpdaterOsmium(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, size='1024', **kw):
+        changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain        
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
-        self.command(['pyosmium-up-to-date', '-s', size, '-v', self.osmpath, '-o', outpath])
+        self.command(['pyosmium-up-to-date', '-s', size, '--server', changeset_url, '-v', self.osmpath, '-o', outpath])
 
 class PlanetUpdaterOsmosis(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, **kw):
