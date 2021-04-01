@@ -1,6 +1,5 @@
 [![current release version](https://img.shields.io/github/release/interline-io/planetutils.svg)](https://github.com/interline-io/planetutils/releases)
 [![Docker Hub container image build status](https://img.shields.io/docker/cloud/build/interline/planetutils.svg)](https://hub.docker.com/r/interline/planetutils/)
-[![CircleCI code test status](https://circleci.com/gh/interline-io/planetutils.svg?style=svg)](https://circleci.com/gh/interline-io/planetutils)
 
 # Interline PlanetUtils
 

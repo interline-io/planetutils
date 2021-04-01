@@ -1,9 +1,0 @@
-version: 2
-jobs:
-  build:
-    machine: true
-    steps:
-      - checkout
-      - run:
-          name: Build container (which includes running tests)
-          command: docker build -t interline-io/planetutils:$CIRCLE_BRANCH .
