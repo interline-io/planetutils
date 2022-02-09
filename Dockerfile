@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.io>"
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,7 +11,7 @@ RUN apt-get update -y && apt-get install \
       osmctools \
       osmium-tool \
       pyosmium \
-      python-gdal \
+      libgdal-dev \
       gdal-bin \
       awscli \
       software-properties-common \
