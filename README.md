@@ -1,5 +1,4 @@
 [![current release version](https://img.shields.io/github/release/interline-io/planetutils.svg)](https://github.com/interline-io/planetutils/releases)
-[![Docker Hub container image build status](https://img.shields.io/docker/cloud/build/interline/planetutils.svg)](https://hub.docker.com/r/interline/planetutils/)
 
 # Interline PlanetUtils
 
@@ -55,7 +54,7 @@ PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.o
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull interline/planetutils:release-v0.4.12
+docker pull ghcr.io/interline-io/interline/planetutils:0.4.13
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -63,7 +62,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t interline/planetutils:release-v0.4.12 <command>
+docker run --rm -v ${PWD}/data:/data -t interline/planetutils:0.4.13 <command>
 ```
 
 ### Using Homebrew on Mac OS
