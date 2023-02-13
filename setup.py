@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='interline-planetutils',
-    version='0.4.12',
+    version='0.4.13',
     description='Interline PlanetUtils',
     long_description=long_description,
     url='https://github.com/interline-io/planetutils',
