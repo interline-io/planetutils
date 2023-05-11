@@ -64,3 +64,4 @@ data
 # PyTest
 .pytest_cache/
 virtualenv
+data/
