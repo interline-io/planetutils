@@ -50,7 +50,7 @@ class ElevationDownloader(object):
         makedirs(os.path.join(self.outpath, *od[:-1]))
         if prefix:
             od = [prefix]+od
-        url = 'http://s3.amazonaws.com/%s/%s%s'%(bucket, '/'.join(od), suffix)
+        url = 'https://s3.amazonaws.com/%s/%s%s'%(bucket, '/'.join(od), suffix)
         log.info("downloading %s to %s"%(url, op))
         self._download(url, op)
         
