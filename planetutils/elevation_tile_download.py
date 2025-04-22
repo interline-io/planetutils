@@ -15,6 +15,7 @@ def main():
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
     parser.add_argument('--format', help='Download format', default='geotiff')
     parser.add_argument('--zoom', help='Zoom level', default=0, type=int)
+    parser.add_argument('--region', help='AWS region for downloads (us-east-1, eu-central-1)', default='us-east-1')
 
     args = parser.parse_args()
 
@@ -22,9 +23,9 @@ def main():
         log.set_verbose()
 
     if args.format == 'geotiff':
-        p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom)
+        p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom, region=args.region)
     elif args.format == 'skadi':
-        p = ElevationSkadiDownloader(args.outpath)
+        p = ElevationSkadiDownloader(args.outpath, region=args.region)
     else:
         print("Unknown format: %s"%args.format)
         sys.exit(1)
