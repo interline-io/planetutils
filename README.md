@@ -193,6 +193,12 @@ To specify more than one bounding box of tiles to download, list the bounding bo
 elevation_tile_download --outpath=data/elevation --csv=data/bboxes.csv
 ```
 
+By default tiles are downloaded from the AWS `us-east-1` region. To instead download from the `eu-central-1` region:
+
+```sh
+elevation_tile_download --outpath=data/elevation --region=eu-central-1
+```
+
 For complete help on command-line arguments:
 
 ```sh
