@@ -117,4 +117,4 @@ jobs:
       - name: Run the suite with the toolchain required
         # The container is the one environment guaranteed to have osmosis,
         # osmconvert and osmium, so nothing is allowed to skip here.
-        run: docker run --rm --entrypoint pytest planetutils:ci --require-binaries -v
+        run: docker run --rm -w /app --entrypoint pytest planetutils:ci --require-binaries -v
