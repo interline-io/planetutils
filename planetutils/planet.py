@@ -1,17 +1,14 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals
-from future.standard_library import install_aliases
-install_aliases()
-from urllib.parse import urlparse, urlencode
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
 from urllib.request import urlopen
 
-import re
-import os
-import subprocess
-import tempfile
-import json
-
-from . import log
+from . import download, log
 from .bbox import validate_bbox
 
 try:
@@ -19,18 +16,90 @@ try:
 except ImportError:
     boto3 = None
 
-class PlanetBase(object):
+# osm_planet_extract is the one command that still needs a system binary:
+# a correct bbox extract requires reference completion (osmium's
+# complete_ways/smart strategies), which pyosmium does not expose.
+INSTALL_HINTS = {
+    'osmium': (
+        'osmium-tool is required for --toolchain=osmium.\n'
+        '  macOS:          brew install osmium-tool\n'
+        '  Debian/Ubuntu:  apt install osmium-tool\n'
+        '  Windows:        conda install conda-forge::osmium-tool\n'
+        '  or use the container: ghcr.io/interline-io/planetutils'
+    ),
+    'osmconvert': (
+        'osmconvert (osmctools) is required for --toolchain=osmctools.\n'
+        '  macOS:          brew install osmctools\n'
+        '  Debian/Ubuntu:  apt install osmctools\n'
+        '  or use the container: ghcr.io/interline-io/planetutils'
+    ),
+    'pyosmium-up-to-date': (
+        'pyosmium-up-to-date ships in the `osmium` wheel, which is a\n'
+        'dependency of this package, so it is normally installed alongside\n'
+        'it. If it is missing, reinstall planetutils in a clean environment,\n'
+        'or install it directly with: pip install "osmium>=4,<5"'
+    ),
+    'osmosis': (
+        'osmosis is required for --toolchain=osmosis, and it needs a JRE.\n'
+        '  macOS:          brew install osmosis\n'
+        '  Debian/Ubuntu:  apt install osmosis\n'
+        '  or use the container: ghcr.io/interline-io/planetutils\n'
+        'For updates, --toolchain=osmium needs no system binaries at all.'
+    ),
+}
+
+
+class MissingBinaryError(Exception):
+    """Raised when a required external tool is not on PATH."""
+
+
+def require_binary(name):
+    """Resolve `name` on PATH, raising an actionable error if absent.
+
+    Console scripts installed alongside this package (pyosmium-up-to-date)
+    may not be on PATH when the package was pip-installed into a venv that
+    is not activated, so look next to the running interpreter first.
+    """
+    local = os.path.join(os.path.dirname(sys.executable), name)
+    for candidate in (local, local + '.exe'):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    found = shutil.which(name)
+    if found:
+        return found
+    raise MissingBinaryError(
+        '%s not found on PATH.\n%s' % (name, INSTALL_HINTS.get(name, '')))
+
+
+class PlanetBase:
+    # Set by extract_commands(): when commands are only being printed, any
+    # config file they reference has to outlive the call.
+    keep_config = False
+
     def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):
         self.osmpath = osmpath
         d, p = os.path.split(osmpath)
         self.osmosis_workdir = osmosis_workdir or os.path.join(d, '%s.workdir'%p)
 
-    def command(self, args):
-        log.debug(args)
+    def _run(self, args):
+        # Single seam through which every external command is executed.
+        # Tests replace this to capture argv without needing the binaries.
+        #
+        # The binary is resolved here, at execution time, rather than when
+        # the argv is built: --commands only prints commands, and must work
+        # on a machine that does not have the toolchain installed.
+        args = [require_binary(args[0])] + list(args[1:])
         return subprocess.check_output(
             args,
-            shell=False
-        ).decode('utf-8')
+            shell=False,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+        )
+
+    def command(self, args):
+        log.debug(args)
+        return self._run(args)
 
     def osmosis(self, *args):
         return self.command(['osmosis'] + list(args))
@@ -38,22 +107,38 @@ class PlanetBase(object):
     def osmconvert(self, *args):
         return self.command(['osmconvert'] + list(args))
 
+    TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+
     def get_timestamp(self):
-        timestamp = self.osmconvert(
-            self.osmpath,
-            '--out-timestamp'
+        """Return the planet file's timestamp as an ISO-8601 Z string.
+
+        Uses pyosmium, so this needs no external binary on any platform.
+        Mirrors what osmconvert did: prefer the header's replication
+        timestamp, and fall back to scanning for the newest object when the
+        header does not carry one (which is the case for most extracts).
+        """
+        import osmium
+
+        header = osmium.io.Reader(
+            osmium.io.File(self.osmpath),
+            osmium.osm.osm_entity_bits.NOTHING,
         )
-        if 'invalid' in timestamp:
-            log.debug('no timestamp; falling back to osmconvert --out-statistics')
-            statistics = self.osmconvert(
-                self.osmpath,
-                '--out-statistics'
-            )
-            timestamp = [
-                i.partition(':')[2].strip() for i in statistics.split('\n')
-                if i.startswith('timestamp max')
-            ][0]
-        return timestamp.strip()
+        try:
+            timestamp = header.header().get('osmosis_replication_timestamp')
+        finally:
+            header.close()
+        if timestamp:
+            return timestamp.strip()
+
+        log.debug('no replication timestamp in header; scanning for the newest object')
+        newest = None
+        for obj in osmium.FileProcessor(self.osmpath):
+            t = obj.timestamp
+            if t and (newest is None or t > newest):
+                newest = t
+        if newest is None:
+            raise Exception('could not determine timestamp for %s' % self.osmpath)
+        return newest.strftime(self.TIMESTAMP_FORMAT)
 
 class Planet(PlanetBase):
     pass
@@ -68,7 +153,12 @@ class PlanetExtractor(PlanetBase):
     def extract_commands(self, bboxes, outpath='.', **kw):
         args = []
         self.command = lambda x:args.append(x)
-        self.extract_bboxes(bboxes, outpath=outpath, **kw)
+        self.keep_config = True
+        try:
+            self.extract_bboxes(bboxes, outpath=outpath, **kw)
+        finally:
+            del self.command
+            self.keep_config = False
         return args
 
 class PlanetExtractorOsmosis(PlanetExtractor):
@@ -109,7 +199,7 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
 class PlanetExtractorOsmium(PlanetExtractor):
     def extract_bboxes(self, bboxes, workers=1, outpath='.', strategy='complete_ways', **kw):
         extracts = []
-        for name, bbox in bboxes.items():            
+        for name, bbox in bboxes.items():
             ext = {
                 'output': '%s.osm.pbf'%name,
                 'output_format': 'pbf',
@@ -122,12 +212,20 @@ class PlanetExtractorOsmium(PlanetExtractor):
                 ext[ftype] = bbox.geometry.get('coordinates', [])
             extracts.append(ext)
         config = {'directory': outpath, 'extracts': extracts}
-        path = None
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False,
+                                         suffix='.json',
+                                         encoding='utf-8') as f:
             json.dump(config, f)
             path = f.name
-        self.command(['osmium', 'extract', '-s', strategy, '-c', path, self.osmpath])
-        os.unlink(path)
+        try:
+            self.command(['osmium', 'extract', '-s', strategy, '-c', path,
+                          self.osmpath])
+        finally:
+            # Under --commands the command is printed rather than run, so the
+            # config must survive for the user to run it by hand. Otherwise
+            # clean up, including when osmium fails.
+            if not self.keep_config:
+                os.unlink(path)
 
 class PlanetDownloader(PlanetBase):
     def download_planet(self):
@@ -135,12 +233,12 @@ class PlanetDownloader(PlanetBase):
 
 class PlanetDownloaderHttp(PlanetBase):
     def _download(self, url, outpath):
-        subprocess.check_output([
-            'curl',
-            '-L',
-            '-o', outpath,
-            url
-        ])
+        # Uses the requests-based helper rather than shelling out to curl,
+        # which is not installed in the container and is not available by
+        # default on Windows. The planet file is tens of gigabytes and the
+        # transfer is not resumable, so it gets the long read timeout.
+        download.download_curl(url, outpath, compressed=True,
+                               timeout=download.LARGE_FILE_TIMEOUT)
 
     def download_planet(self, url=None):
         if os.path.exists(self.osmpath):
@@ -188,15 +286,13 @@ class PlanetUpdater(PlanetBase):
     def update_planet(self, outpath, grain='hour', changeset_url=None, **kw):
         raise NotImplementedError
 
-class PlanetUpdaterOsmupdate(PlanetBase):
-    pass
-
 class PlanetUpdaterOsmium(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, size='1024', **kw):
-        changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain        
+        changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
-        self.command(['pyosmium-up-to-date', '-s', size, '--server', changeset_url, '-v', self.osmpath, '-o', outpath])
+        self.command(['pyosmium-up-to-date', '-s', size, '--server',
+                      changeset_url, '-v', self.osmpath, '-o', outpath])
 
 class PlanetUpdaterOsmosis(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, **kw):
@@ -216,13 +312,13 @@ class PlanetUpdaterOsmosis(PlanetBase):
             raise Exception('workdir exists and is not a directory: %s'%self.osmosis_workdir)
         try:
             os.makedirs(self.osmosis_workdir)
-        except OSError as e:
+        except OSError:
             pass
         self.osmosis(
             '--read-replication-interval-init',
             'workingDirectory=%s'%self.osmosis_workdir
         )
-        with open(configpath, 'w') as f:
+        with open(configpath, 'w', encoding='utf-8') as f:
             f.write('''
                 baseUrl=%s
                 maxInterval=0
@@ -234,8 +330,8 @@ class PlanetUpdaterOsmosis(PlanetBase):
             return
         timestamp = self.get_timestamp()
         url = 'https://replicate-sequences.osm.mazdermind.de/?%s'%timestamp
-        state = urlopen(url).read()
-        with open(statepath, 'w') as f:
+        state = urlopen(url).read().decode('utf-8')
+        with open(statepath, 'w', encoding='utf-8') as f:
             f.write(state)
 
     def _get_changeset(self):

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals
+import csv
 import json
 import os
-import csv
+
 
 def flatcoords(coords, fc=None):
     if fc is None:
@@ -11,11 +11,11 @@ def flatcoords(coords, fc=None):
         coords[0][0] # check if iterable of iterables
         for c in coords:
             flatcoords(c, fc)
-    except:
+    except (TypeError, IndexError):
         fc.append(coords)
     return fc
 
-class Feature(object):
+class Feature:
     def __init__(self, properties=None, geometry=None, **kwargs):
         self.properties = properties or {}
         self.geometry = geometry or {}
@@ -23,7 +23,6 @@ class Feature(object):
             self.set_bbox([0.0, 0.0, 0.0, 0.0])
 
     def bbox(self):
-        gt = self.geometry.get('type')
         coords = self.geometry.get('coordinates', [])
         fc = flatcoords(coords)
         lons = [i[0] for i in fc]
@@ -44,13 +43,13 @@ class Feature(object):
 
     def is_rectangle(self):
         fc = flatcoords(self.geometry.get('coordinates', []))
-        lons = set([i[0] for i in fc])
-        lats = set([i[1] for i in fc])
+        lons = {i[0] for i in fc}
+        lats = {i[1] for i in fc}
         return len(lons) <= 2 and len(lats) <= 2
 
     # act like [left, bottom, right, top]
     def __getitem__(self, item):
-        return self.bbox()[item] 
+        return self.bbox()[item]
 
 
 def validate_bbox(bbox):
@@ -67,14 +66,14 @@ def load_feature_string(bbox):
     f = Feature()
     f.set_bbox(bbox.split(','))
     return f
-    
+
 def load_features_csv(csvpath):
     # bbox csv format:
     # name, left, bottom, right, top
     if not os.path.exists(csvpath):
         raise Exception('file does not exist: %s'%csvpath)
     bboxes = {}
-    with open(csvpath) as f:
+    with open(csvpath, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
         for row in reader:
             if len(row) != 5:
@@ -87,7 +86,7 @@ def load_features_csv(csvpath):
 def load_features_geojson(path):
     if not os.path.exists(path):
         raise Exception('file does not exist: %s'%path)
-    with open(path) as f:
+    with open(path, encoding='utf-8') as f:
         data = json.load(f)
     # check if this is a single feature
     if data.get('type') == 'FeatureCollection':

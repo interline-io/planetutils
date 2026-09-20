@@ -1,36 +1,107 @@
-from __future__ import absolute_import, unicode_literals
+"""HTTP download helpers.
+
+Everything here used to shell out to `curl`, and the Skadi path piped curl
+into `gzip -d`. Neither is available by default on Windows, and neither
+checked its exit status -- a 404 or a 403 silently produced a truncated or
+empty file that then looked like a valid cached tile forever.
+
+These are now pure `requests` + stdlib `gzip`, so they work identically on
+macOS, Linux and Windows, and they fail loudly.
+"""
+import gzip
 import os
-import subprocess
+import shutil
+
 import requests
+
 from . import log
 
+# Connect/read timeout, applied per read rather than to the whole transfer.
+# Suits small, numerous tile downloads.
+TIMEOUT = (10, 60)
+
+# Used for multi-hour, multi-gigabyte transfers such as the OSM planet. The
+# transfer is not resumable, so a stalled read discards everything already
+# fetched; a short read timeout that suits tiles is actively harmful here.
+# `curl -L -o` applied no read timeout at all.
+LARGE_FILE_TIMEOUT = (10, 900)
+
+CHUNK_SIZE = 1024 * 1024
+
+
+def _get(url, compressed=False, timeout=TIMEOUT):
+    """Start a streaming GET, raising on any error status.
+
+    `compressed` mirrors the old curl behavior: when the payload is already
+    compressed we ask for it verbatim, otherwise we let the server use
+    transfer compression (curl's --compressed).
+    """
+    headers = {'Accept-Encoding': 'identity'} if compressed else {}
+    r = requests.get(url, stream=True, timeout=timeout, headers=headers)
+    try:
+        r.raise_for_status()
+    except BaseException:
+        # With stream=True the pooled connection is only returned once the
+        # body is read to EOF or closed. An unread error body would hold the
+        # socket until GC, which exhausts the pool across a tile run.
+        r.close()
+        raise
+    return r
+
+
+def _write_atomically(response, outpath, transform=None):
+    """Stream `response` to `outpath` via a temporary file.
+
+    Writing through a .part file means an interrupted or failed download
+    never leaves a partial file behind that tile_exists() would later treat
+    as a valid cached tile.
+    """
+    partpath = '%s.part' % outpath
+    try:
+        with open(partpath, 'wb') as f:
+            body = transform(response) if transform else response.raw
+            shutil.copyfileobj(body, f, CHUNK_SIZE)
+        os.replace(partpath, outpath)
+    except BaseException:
+        try:
+            os.unlink(partpath)
+        except OSError:
+            pass
+        raise
+
+
 def download(url, outpath):
-    r = requests.get(url, stream=True)
-    with open(outpath, 'wb') as fd:
-        for chunk in r.iter_content(chunk_size=128):
-            fd.write(chunk)
-    
+    """Download `url` to `outpath`."""
+    r = _get(url)
+    r.raw.decode_content = True
+    _write_atomically(r, outpath)
+
+
 def download_gzip(url, outpath):
-    with open(outpath, 'wb') as f:
-        ps1 = subprocess.Popen(['curl', '-L', '--fail', '-s', url], stdout=subprocess.PIPE)
-        ps2 = subprocess.Popen(['gzip', '-d'], stdin=ps1.stdout, stdout=f)
-        ps2.wait()
+    """Download a gzipped `url`, writing the decompressed body to `outpath`.
 
-def download_curl(url, outpath, compressed=False):
+    Replaces the old `curl ... | gzip -d` pipeline, which left zombie
+    processes, could hang when the reader exited early, and checked neither
+    process's exit status.
+    """
+    r = _get(url, compressed=True)
+    _write_atomically(r, outpath, transform=lambda resp: gzip.GzipFile(
+        fileobj=resp.raw, mode='rb'))
+
+
+def download_curl(url, outpath, compressed=False, timeout=TIMEOUT):
+    """Download `url` to `outpath`.
+
+    Kept under its original name because it is part of the module's public
+    surface, but it no longer invokes curl.
+    """
     if os.path.exists(outpath):
-        log.warning("Warning: output path %s already exists."%outpath)
-    args = ['curl', '-L', '--fail', '-o', outpath, url]
-    if not compressed:
-        args.append('--compressed')
+        log.warning("Warning: output path %s already exists." % outpath)
 
-    log.info("Downloading to %s"%outpath)
-    log.debug(url)
-    log.debug(' '.join(args))
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = p.communicate()
-    e = p.wait()
-    if e != 0:
-        raise Exception("Error downloading")
-    else:
-        log.info("Done")
-        
+    log.info("Downloading to %s" % outpath)
+    # NOTE: the URL is deliberately not logged. It can carry an api_token in
+    # its query string, which would otherwise end up in logs.
+    r = _get(url, compressed=compressed, timeout=timeout)
+    r.raw.decode_content = True
+    _write_atomically(r, outpath)
+    log.info("Done")

@@ -1,10 +1,16 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals, print_function
 import argparse
-from .planet import *
-from . import bbox
-from .bbox import load_feature_string, load_features_csv
 
+from . import bbox, log
+from .cli import handle_missing_binary
+from .planet import (
+    PlanetExtractorOsmconvert,
+    PlanetExtractorOsmium,
+    PlanetExtractorOsmosis,
+)
+
+
+@handle_missing_binary
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('osmpath', help='Name or path to OSM planet file. Use planet_update if you do not have a copy locally.')
@@ -33,7 +39,7 @@ def main():
 
     bboxes = {}
     if args.csv:
-        bboxes = bbox.load_features_csv(args.csv)        
+        bboxes = bbox.load_features_csv(args.csv)
     elif args.geojson:
         bboxes = bbox.load_features_geojson(args.geojson)
     elif (args.bbox and args.name):

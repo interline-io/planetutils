@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals
-import os
 import argparse
+import os
 
 from . import log
 from .osm_extract_downloader import OsmExtractDownloader
+
 
 def main():
     parser = argparse.ArgumentParser(usage="OSM Extract Download tool.")

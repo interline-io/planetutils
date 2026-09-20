@@ -1,9 +1,12 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals, print_function
 import argparse
-from .planet import *
-from . import log
 
+from . import log
+from .cli import handle_missing_binary
+from .planet import Planet
+
+
+@handle_missing_binary
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('osmpath', help='OSM file')

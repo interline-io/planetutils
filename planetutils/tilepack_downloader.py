@@ -1,17 +1,12 @@
-from __future__ import absolute_import, unicode_literals, print_function
-from future.standard_library import install_aliases
-install_aliases()
-from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, parse_qs
+import json
+import os
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 from urllib.request import urlopen
 
-import os
-import subprocess
-import json
-
-from . import log
 from . import download
 
-class TilepackDownloader(object):
+
+class TilepackDownloader:
     HOST = 'https://app.interline.io'
     def download(self, outpath, version='latest', api_token=None, compressed=False):
         # Endpoint
@@ -35,10 +30,6 @@ class TilepackDownloader(object):
         tilepacks = sorted(tilepacks, key=lambda x:int(x.get('id')))
         for tilepack in tilepacks:
             a = tilepack.get('attributes', {})
-            if a.get('bucket_provider') == 'gcp':
-                bucket = 'gs://%s/%s'%(a['bucket_name'], a['bucket_key'])
-            elif a.get('bucket_provider') == 's3':
-                bucket = 's3://%s/%s'%(a['bucket_name'], a['bucket_key'])
             print("""
 Tilepack ID: %s
     Timestamp: %s
