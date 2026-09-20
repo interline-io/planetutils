@@ -116,8 +116,23 @@ class TestScale:
         with rasterio.open(str(out)) as d:
             a = d.read(1)
             assert d.dtypes[0] == 'uint8'
-        assert a[0, 0] == pytest.approx(10 / 40 * 255, abs=1)
-        assert a[SIZE, SIZE] == 255
+        # Exact, not approximate: 10 over 0-40 is 63.75, which must round to
+        # 64 as gdal_translate does. An abs=1 tolerance here would accept the
+        # truncated 63 and hide the regression.
+        assert a[0, 0] == 64
+        assert a[SIZE, 0] == 128         # 20 -> 127.5 -> 128
+        assert a[SIZE, SIZE] == 255      # 40 -> 255
+
+    def test_rounds_rather_than_truncates(self, tmp_path):
+        """gdal_translate rounds float values into Byte; astype() truncates."""
+        d = tmp_path / 'in'
+        d.mkdir()
+        write_tile(d / 'a.tif', 0, SIZE * PIXEL, 10.0)
+        out = tmp_path / 'out8.tif'
+        elevation_tile_merge.scale_tiles(
+            elevation_tile_merge.find_tiles(str(d)), str(out), '0', '40')
+        with rasterio.open(str(out)) as ds:
+            assert ds.read(1)[0, 0] == 64     # 63.75 rounds up, not down to 63
 
     def test_clips_out_of_range_values(self, tile_block, tmp_path):
         out = tmp_path / 'out8.tif'
@@ -127,7 +142,7 @@ class TestScale:
         with rasterio.open(str(out)) as d:
             a = d.read(1)
         assert a[SIZE, SIZE] == 255      # 40 clipped to the 20 ceiling
-        assert a[0, 0] == pytest.approx(10 / 20 * 255, abs=1)
+        assert a[0, 0] == 128            # 10 over 0-20 is 127.5 -> 128
 
     def test_equal_min_max_raises(self, tile_block, tmp_path):
         with pytest.raises(ValueError, match='must differ'):

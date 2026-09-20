@@ -28,25 +28,33 @@ def find_tiles(inpath):
     return sorted(matches)
 
 
+# Bound on the working buffer rasterio uses while merging, in MB. The merge
+# is written to disk incrementally rather than held in memory, so a
+# planet-scale tile set does not have to fit in RAM.
+MEM_LIMIT_MB = 256
+
+
 def merge_tiles(paths, outpath):
     """Merge `paths` into `outpath`.
 
     nodata=0 reproduces `gdal_merge.py -init 0`: gaps between tiles are
     initialized to zero rather than left undefined.
+
+    Writes via dst_path so the merged raster is streamed to disk in windows,
+    matching the incremental behavior of the gdal_merge.py implementation
+    this replaced.
     """
     sources = [rasterio.open(p) for p in paths]
     try:
-        array, transform = rasterio_merge(sources, nodata=0)
         profile = sources[0].profile.copy()
-        profile.update(
-            driver='GTiff',
-            height=array.shape[1],
-            width=array.shape[2],
-            count=array.shape[0],
-            transform=transform,
+        profile.update(driver='GTiff')
+        rasterio_merge(
+            sources,
+            nodata=0,
+            dst_path=outpath,
+            dst_kwds=profile,
+            mem_limit=MEM_LIMIT_MB,
         )
-        with rasterio.open(outpath, 'w', **profile) as dst:
-            dst.write(array)
     finally:
         for s in sources:
             s.close()
@@ -70,7 +78,10 @@ def scale_tiles(paths, outpath, smin, smax):
     if span == 0:
         raise ValueError('--scale min and max must differ')
     scaled = (array.astype('float64') - float(smin)) / span * 255.0
-    scaled = np.clip(scaled, 0, 255).astype('uint8')
+    # Round before casting. A bare astype() truncates, so a value landing on
+    # 63.75 would become 63 where gdal_translate's float-to-Byte conversion
+    # produces 64.
+    scaled = np.clip(np.round(scaled), 0, 255).astype('uint8')
 
     profile.update(
         driver='GTiff',

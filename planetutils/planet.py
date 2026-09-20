@@ -8,7 +8,7 @@ import sys
 import tempfile
 from urllib.request import urlopen
 
-from . import log
+from . import download, log
 from .bbox import validate_bbox
 
 try:
@@ -227,12 +227,10 @@ class PlanetDownloader(PlanetBase):
 
 class PlanetDownloaderHttp(PlanetBase):
     def _download(self, url, outpath):
-        self.command([
-            'curl',
-            '-L',
-            '-o', outpath,
-            url
-        ])
+        # Uses the requests-based helper rather than shelling out to curl,
+        # which is not installed in the container and is not available by
+        # default on Windows.
+        download.download_curl(url, outpath, compressed=True)
 
     def download_planet(self, url=None):
         if os.path.exists(self.osmpath):

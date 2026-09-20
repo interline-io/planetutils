@@ -171,20 +171,43 @@ class TestUpdaterOsmium:
 
 
 class TestDownloaderHttp:
-    def test_curl_argv(self):
-        p = planet.PlanetDownloaderHttp('/tmp/does-not-exist.osm.pbf')
-        calls = record(p)
-        p.download_planet()
-        assert calls == [[
-            'curl', '-L', '-o', '/tmp/does-not-exist.osm.pbf',
-            'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf',
-        ]]
+    """Downloads a missing planet over HTTP. This used to shell out to curl,
+    which is neither installed in the container nor present by default on
+    Windows."""
 
-    def test_custom_mirror_url(self):
-        p = planet.PlanetDownloaderHttp('/tmp/does-not-exist.osm.pbf')
-        calls = record(p)
-        p.download_planet(url='https://mirror.example.org/planet.osm.pbf')
-        assert calls[0][-1] == 'https://mirror.example.org/planet.osm.pbf'
+    def _record(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            planet.download, 'download_curl',
+            lambda url, outpath, **kw: calls.append((url, outpath, kw)))
+        return calls
+
+    def test_downloads_default_planet_url(self, monkeypatch, tmp_path):
+        out = str(tmp_path / 'planet.osm.pbf')
+        calls = self._record(monkeypatch)
+        planet.PlanetDownloaderHttp(out).download_planet()
+        assert calls == [(
+            'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf',
+            out, {'compressed': True})]
+
+    def test_custom_mirror_url(self, monkeypatch, tmp_path):
+        out = str(tmp_path / 'planet.osm.pbf')
+        calls = self._record(monkeypatch)
+        planet.PlanetDownloaderHttp(out).download_planet(
+            url='https://mirror.example.org/planet.osm.pbf')
+        assert calls[0][0] == 'https://mirror.example.org/planet.osm.pbf'
+
+    def test_does_not_shell_out(self, monkeypatch, tmp_path):
+        """Regression guard: no external binary on the planet download path."""
+        out = str(tmp_path / 'planet.osm.pbf')
+        self._record(monkeypatch)
+        p = planet.PlanetDownloaderHttp(out)
+
+        def explode(args):
+            raise AssertionError('shelled out to %r' % (args,))
+
+        p._run = explode
+        p.download_planet()
 
     def test_refuses_to_overwrite_existing(self):
         p = planet.PlanetDownloaderHttp(OSMPATH)

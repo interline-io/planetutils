@@ -5,6 +5,9 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+  # Callable so the release workflow can gate publishing on a full test run;
+  # tag pushes do not match the `branches` filter above.
+  workflow_call:
 
 concurrency:
   group: test-${{ github.ref }}

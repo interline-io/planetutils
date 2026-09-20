@@ -23,8 +23,14 @@ jobs:
           echo "pyproject: $version / tag: $tag"
           test "$version" = "$tag" || { echo "tag v$version expected, got ${GITHUB_REF_NAME}"; exit 1; }
 
-  docker:
+  test:
+    # A v* tag does not trigger test.yaml's push filter, so the full suite is
+    # called here. Nothing is published unless it passes.
     needs: check-version
+    uses: ./.github/workflows/test.yaml
+
+  docker:
+    needs: [check-version, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -57,7 +63,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   release:
-    needs: [check-version, docker]
+    needs: [check-version, test, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
