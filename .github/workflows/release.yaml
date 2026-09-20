@@ -76,9 +76,22 @@ jobs:
       - name: Build sdist and wheel
         run: uv build
 
-      - name: Create the release with generated notes
-        # Replaces the unmaintained `gren`, which pulled an EOL Node 16
-        # toolchain in just to write release notes.
+      - name: Publish the release
+        # Handles both ways a release gets cut:
+        #   * a bare `git push --tags` -- the release does not exist yet, so
+        #     create it with generated notes and the build artifacts;
+        #   * "Draft a new release" in the UI -- that creates the tag AND the
+        #     release, so `gh release create` fails with "a release with the
+        #     same tag name already exists" and the artifacts never attach.
+        #     Upload them to the existing release instead, leaving whatever
+        #     notes were written by hand intact.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${GITHUB_REF_NAME}" --generate-notes dist/*
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists; uploading artifacts to it."
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          else
+            echo "Creating release ${GITHUB_REF_NAME}."
+            gh release create "${GITHUB_REF_NAME}" --generate-notes dist/*
+          fi
