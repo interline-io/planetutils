@@ -328,3 +328,43 @@ class TestWorkdirOverride:
         osmpath = tmp_path / 'planet.osm.pbf'
         p = planet.PlanetUpdaterOsmosis(str(osmpath), osmosis_workdir=None)
         assert p.osmosis_workdir == str(tmp_path / 'planet.osm.pbf.workdir')
+
+
+class TestMissingBinaryPreflight:
+    def test_actionable_error_instead_of_filenotfound(self, monkeypatch):
+        monkeypatch.setattr(planet.shutil, 'which', lambda n: None)
+        p = planet.PlanetBase(OSMPATH)
+        with pytest.raises(planet.MissingBinaryError) as e:
+            p.osmosis('--version')
+        msg = str(e.value)
+        assert 'osmosis not found on PATH' in msg
+        assert 'brew install osmosis' in msg
+        assert 'ghcr.io/interline-io/planetutils' in msg
+
+    def test_osmium_hint_mentions_conda_for_windows(self, monkeypatch):
+        monkeypatch.setattr(planet.shutil, 'which', lambda n: None)
+        p = planet.PlanetExtractorOsmium(OSMPATH)
+        with pytest.raises(planet.MissingBinaryError) as e:
+            p.extract_bboxes({'t': rect_feature()}, outpath='/out')
+        assert 'conda install conda-forge::osmium-tool' in str(e.value)
+
+    def test_commands_mode_works_without_any_binary(self, monkeypatch):
+        """--commands only prints; it must not require the toolchain."""
+        monkeypatch.setattr(planet.shutil, 'which', lambda n: None)
+        p = planet.PlanetExtractorOsmosis(OSMPATH)
+        cmds = p.extract_commands({'test': BBOX}, outpath='/out')
+        assert cmds[0][0] == 'osmosis'
+
+    def test_resolves_console_scripts_next_to_the_interpreter(self,
+                                                              tmp_path,
+                                                              monkeypatch):
+        """pyosmium-up-to-date lives in the venv's bin/Scripts dir, which is
+        not on PATH when the venv is not activated."""
+        fake_bin = tmp_path / 'python'
+        fake_bin.write_text('')
+        script = tmp_path / 'pyosmium-up-to-date'
+        script.write_text('')
+        script.chmod(0o755)
+        monkeypatch.setattr(planet.sys, 'executable', str(fake_bin))
+        monkeypatch.setattr(planet.shutil, 'which', lambda n: None)
+        assert planet.require_binary('pyosmium-up-to-date') == str(script)
