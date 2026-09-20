@@ -1,12 +1,89 @@
 #!/usr/bin/env python
+"""Merge downloaded GeoTIFF elevation tiles into a single raster.
+
+This used to shell out to gdal_merge.py and gdal_translate. gdal_merge.py is
+a Python utility that requires the GDAL Python bindings to be installed
+separately, is not directly executable on Windows, and is superseded by
+`gdal raster mosaic` in current GDAL. rasterio bundles GDAL in its wheels on
+every platform we target, so the merge now runs in-process with no system
+GDAL at all.
+"""
 import argparse
-import sys
 import fnmatch
 import os
-import subprocess
-import tempfile
+import sys
+
+import numpy as np
+import rasterio
+from rasterio.merge import merge as rasterio_merge
 
 from . import log
+
+
+def find_tiles(inpath):
+    matches = []
+    for root, _dirnames, filenames in os.walk(inpath):
+        for filename in fnmatch.filter(filenames, '*.tif'):
+            matches.append(os.path.join(root, filename))
+    return sorted(matches)
+
+
+def merge_tiles(paths, outpath):
+    """Merge `paths` into `outpath`.
+
+    nodata=0 reproduces `gdal_merge.py -init 0`: gaps between tiles are
+    initialized to zero rather than left undefined.
+    """
+    sources = [rasterio.open(p) for p in paths]
+    try:
+        array, transform = rasterio_merge(sources, nodata=0)
+        profile = sources[0].profile.copy()
+        profile.update(
+            driver='GTiff',
+            height=array.shape[1],
+            width=array.shape[2],
+            count=array.shape[0],
+            transform=transform,
+        )
+        with rasterio.open(outpath, 'w', **profile) as dst:
+            dst.write(array)
+    finally:
+        for s in sources:
+            s.close()
+
+
+def scale_tiles(paths, outpath, smin, smax):
+    """Merge and linearly rescale to 8-bit.
+
+    Reproduces `gdal_translate -of GTiff -ot Byte -scale <min> <max> 0 255`:
+    values are clipped to [smin, smax] and mapped onto 0-255.
+    """
+    sources = [rasterio.open(p) for p in paths]
+    try:
+        array, transform = rasterio_merge(sources, nodata=0)
+        profile = sources[0].profile.copy()
+    finally:
+        for s in sources:
+            s.close()
+
+    span = float(smax) - float(smin)
+    if span == 0:
+        raise ValueError('--scale min and max must differ')
+    scaled = (array.astype('float64') - float(smin)) / span * 255.0
+    scaled = np.clip(scaled, 0, 255).astype('uint8')
+
+    profile.update(
+        driver='GTiff',
+        dtype='uint8',
+        height=scaled.shape[1],
+        width=scaled.shape[2],
+        count=scaled.shape[0],
+        transform=transform,
+        nodata=None,
+    )
+    with rasterio.open(outpath, 'w', **profile) as dst:
+        dst.write(scaled)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -15,50 +92,30 @@ def main():
     parser.add_argument('inpath', help='Input directory')
     args = parser.parse_args()
 
-    outpath = args.outpath
-    tmppath = args.outpath
+    scale = None
+    if args.scale:
+        parts = args.scale.split(',')
+        if len(parts) != 2:
+            print("Must provide min, max values")
+            sys.exit(1)
+        scale = parts
 
-    if args.scale and len(args.scale.split(',')) != 2:
-        print("Must provide min, max values")
-        sys.exit(1)
-    elif args.scale:
-        # Output to tmp file. The descriptor must be closed: leaking it
-        # leaks an fd on POSIX and, on Windows, keeps the file locked so
-        # GDAL cannot write to it.
-        fd, tmppath = tempfile.mkstemp(suffix='.tif')
-        os.close(fd)
-
-    matches = []
-    for root, dirnames, filenames in os.walk(args.inpath):
-        for filename in fnmatch.filter(filenames, '*.tif'):
-            matches.append(os.path.join(root, filename))
-
+    matches = find_tiles(args.inpath)
     if len(matches) == 0:
         print("No input files")
         sys.exit(0)
 
-    print("Found %s files:"%len(matches))
+    print("Found %s files:" % len(matches))
     for i in matches:
-        print("\t%s"%(i))
+        print("\t%s" % (i))
 
-    # gdal_merge.py -init 0 -o out.tif
-    print("Merging... %s"%(tmppath))
-    cmd = ['gdal_merge.py', '-init', '0', '-o', tmppath]
-    cmd += matches
-    p = subprocess.check_call(cmd)
+    print("Merging... %s" % (args.outpath))
+    if scale:
+        scale_tiles(matches, args.outpath, scale[0], scale[1])
+    else:
+        merge_tiles(matches, args.outpath)
+    log.info("Done")
 
-    # gdal_translate -of GTiff -ot Byte -scale 0 255 0 255 out.tif out8.tif
-    if args.scale:
-        print("Scaling: %s -> %s"%(tmppath, outpath))
-        a = args.scale.split(",")
-        cmd = ['gdal_translate', '-of', 'GTiff', '-ot', 'Byte', '-scale', a[0], a[1], '0', '255', tmppath, outpath]
-        subprocess.check_call(cmd)
-        # cleanup
-        for path in ('%s.aux.xml'%outpath, tmppath):
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
 
 if __name__ == '__main__':
     main()

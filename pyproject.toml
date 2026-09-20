@@ -36,6 +36,9 @@ dependencies = [
     # script that osm_planet_update uses. Capped because we depend on the
     # 4.x API.
     "osmium>=4,<5",
+    # Wheels bundle GDAL on every target platform, replacing the
+    # gdal_merge.py / gdal_translate binaries.
+    "rasterio>=1.4",
 ]
 
 [project.optional-dependencies]
@@ -73,3 +76,8 @@ markers = [
     "network: test performs real network I/O; deselected by default",
 ]
 addopts = "-m 'not network'"
+filterwarnings = [
+    "error",
+    # affine, via rasterio's own internals -- not our call sites.
+    "ignore:Use `@` matmul instead:PendingDeprecationWarning",
+]

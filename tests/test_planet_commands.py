@@ -279,8 +279,9 @@ class TestUpdaterOsmosis:
         p._initialize()
         assert calls[0][0] == 'osmosis'
         assert calls[0][1] == '--read-replication-interval-init'
-        config = open(os.path.join(p.osmosis_workdir,
-                                   'configuration.txt')).read()
+        with open(os.path.join(p.osmosis_workdir,
+                               'configuration.txt')) as f:
+            config = f.read()
         assert 'baseUrl=https://example.org/replication/hour' in config
         assert 'maxInterval=0' in config
 
@@ -309,7 +310,8 @@ class TestUpdaterOsmosis:
                 'read': staticmethod(lambda: b'sequenceNumber=123\n')})())
         p._initialize_state()
         statepath = os.path.join(p.osmosis_workdir, 'state.txt')
-        assert 'sequenceNumber=123' in open(statepath).read()
+        with open(statepath) as f:
+            assert 'sequenceNumber=123' in f.read()
 
 
 class TestWorkdirOverride:
