@@ -1,9 +1,14 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals, print_function
 import argparse
-from .planet import *
+
 from . import bbox
+from . import log
 from .bbox import load_feature_string, load_features_csv
+from .planet import (
+    PlanetExtractorOsmconvert,
+    PlanetExtractorOsmium,
+    PlanetExtractorOsmosis,
+)
 
 def main():
     parser = argparse.ArgumentParser()

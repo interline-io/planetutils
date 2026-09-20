@@ -231,3 +231,88 @@ class TestOsmiumCommandsTempfileBug:
         config_path = cmds[0][5]
         assert os.path.exists(config_path), (
             'the config referenced by the emitted command must still exist')
+
+
+class TestUpdaterOsmosis:
+    """The osmosis update path is retained, so it gets pinned too.
+
+    _initialize_state currently raises TypeError on Python 3 (it writes the
+    bytes from urlopen() into a text-mode file), so it has not worked since
+    the Py3 migration. That is fixed in a later commit; the xfail below
+    flips when it is.
+    """
+
+    def _updater(self, tmp_path):
+        osmpath = tmp_path / 'planet.osm.pbf'
+        osmpath.write_bytes(b'')
+        p = planet.PlanetUpdaterOsmosis(str(osmpath))
+        p.changeset_url = 'https://example.org/replication/hour'
+        p.get_timestamp = lambda: '2018-02-02T22:34:43Z'
+        return p
+
+    def test_get_changeset_argv(self, tmp_path):
+        p = self._updater(tmp_path)
+        calls = record(p)
+        p._get_changeset()
+        assert calls == [[
+            'osmosis',
+            '--read-replication-interval',
+            'workingDirectory=%s' % p.osmosis_workdir,
+            '--simplify-change',
+            '--write-xml-change',
+            os.path.join(p.osmosis_workdir, 'changeset.osm.gz'),
+        ]]
+
+    def test_apply_changeset_argv(self, tmp_path):
+        p = self._updater(tmp_path)
+        calls = record(p)
+        p._apply_changeset('/out/new.osm.pbf')
+        assert calls == [[
+            'osmosis',
+            '--read-xml-change',
+            os.path.join(p.osmosis_workdir, 'changeset.osm.gz'),
+            '--read-pbf', p.osmpath,
+            '--apply-change',
+            '--write-pbf', '/out/new.osm.pbf',
+        ]]
+
+    def test_initialize_writes_configuration(self, tmp_path):
+        p = self._updater(tmp_path)
+        calls = record(p)
+        p._initialize()
+        assert calls[0][0] == 'osmosis'
+        assert calls[0][1] == '--read-replication-interval-init'
+        config = open(os.path.join(p.osmosis_workdir,
+                                   'configuration.txt')).read()
+        assert 'baseUrl=https://example.org/replication/hour' in config
+        assert 'maxInterval=0' in config
+
+    def test_initialize_is_idempotent(self, tmp_path):
+        p = self._updater(tmp_path)
+        record(p)
+        p._initialize()
+        calls = record(p)
+        p._initialize()
+        assert calls == []
+
+    def test_missing_planet_raises(self, tmp_path):
+        p = planet.PlanetUpdaterOsmosis(str(tmp_path / 'nope.osm.pbf'))
+        record(p)
+        with pytest.raises(Exception, match='planet file does not exist'):
+            p.update_planet('/out/new.osm.pbf')
+
+    @pytest.mark.xfail(strict=True,
+                       reason='writes bytes from urlopen() into a text-mode '
+                              'file; broken since the Python 3 migration')
+    def test_initialize_state_writes_sequence_file(self, tmp_path,
+                                                   monkeypatch):
+        p = self._updater(tmp_path)
+        record(p)
+        os.makedirs(p.osmosis_workdir, exist_ok=True)
+        monkeypatch.setattr(
+            planet, 'urlopen',
+            lambda url: type('R', (), {
+                'read': staticmethod(lambda: b'sequenceNumber=123\n')})())
+        p._initialize_state()
+        statepath = os.path.join(p.osmosis_workdir, 'state.txt')
+        assert 'sequenceNumber=123' in open(statepath).read()

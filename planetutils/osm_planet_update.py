@@ -1,9 +1,14 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals
 import argparse
+import os
 
 from . import log
-from .planet import *
+from .planet import (
+    PlanetDownloaderHttp,
+    PlanetDownloaderS3,
+    PlanetUpdaterOsmium,
+    PlanetUpdaterOsmosis,
+)
 
 def main():
     parser = argparse.ArgumentParser()

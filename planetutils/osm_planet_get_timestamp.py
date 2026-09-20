@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals, print_function
 import argparse
-from .planet import *
+
 from . import log
+from .planet import Planet
 
 def main():
     parser = argparse.ArgumentParser()

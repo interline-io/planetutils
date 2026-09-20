@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals
-from future.standard_library import install_aliases
-install_aliases()
 from urllib.parse import urlparse, urlencode
 from urllib.request import urlopen
 

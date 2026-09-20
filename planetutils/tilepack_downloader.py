@@ -1,11 +1,7 @@
-from __future__ import absolute_import, unicode_literals, print_function
-from future.standard_library import install_aliases
-install_aliases()
 from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, parse_qs
 from urllib.request import urlopen
 
 import os
-import subprocess
 import json
 
 from . import log

@@ -29,12 +29,8 @@ classifiers = [
     "Topic :: Scientific/Engineering :: GIS",
 ]
 
-# NOTE: `future` is retained here deliberately for Phase 0 so that behavior is
-# unchanged while characterization tests are written. It is removed in Phase 3,
-# together with the `install_aliases()` calls it backs.
 dependencies = [
-    "future",
-    "requests",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
