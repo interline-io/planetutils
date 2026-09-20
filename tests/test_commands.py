@@ -1,21 +1,45 @@
-from __future__ import absolute_import, unicode_literals
-import tempfile
-import types
-import os
-import unittest
+"""Entry-point smoke tests.
 
-class TestCommandImports(unittest.TestCase):
-    def test_command_imports(self):
-        commands = [
-            'osm_planet_update=planetutils.osm_planet_update:main',
-            'osm_planet_extract=planetutils.osm_planet_extract:main',
-            'osm_planet_get_timestamp=planetutils.osm_planet_get_timestamp:main',
-            'osm_extract_download=planetutils.osm_extract_download:main',
-            'elevation_tile_download=planetutils.elevation_tile_download:main',
-            'elevation_tile_merge=planetutils.elevation_tile_merge:main',
-            'valhalla_tilepack_download=planetutils.tilepack_download:main',
-            'valhalla_tilepack_list=planetutils.tilepack_list:main'
-        ]
-        for i in commands:
-            a, _, b = i.partition('=')[-1].partition(':')
-            exec('import %s'%(a))
+The console_scripts list is read from pyproject.toml rather than duplicated
+here, so it cannot drift from packaging. This is the test that catches a CLI
+broken by the star-import removal, so it must stay ahead of that change.
+"""
+import importlib
+import tomllib
+
+import pytest
+
+from conftest import REPO_ROOT
+
+
+def console_scripts():
+    with open(REPO_ROOT / 'pyproject.toml', 'rb') as f:
+        return tomllib.load(f)['project']['scripts']
+
+
+SCRIPTS = console_scripts()
+
+
+def test_pyproject_declares_all_eight_commands():
+    assert len(SCRIPTS) == 8
+
+
+@pytest.mark.parametrize('name,target', sorted(SCRIPTS.items()))
+def test_entry_point_is_importable_and_callable(name, target):
+    module_name, _, func_name = target.partition(':')
+    module = importlib.import_module(module_name)
+    assert hasattr(module, func_name), f'{module_name} has no {func_name}'
+    assert callable(getattr(module, func_name))
+
+
+@pytest.mark.parametrize('name,target', sorted(SCRIPTS.items()))
+def test_entry_point_help_exits_zero(name, target, monkeypatch, capsys):
+    """--help must work without any external binary or network access."""
+    import sys
+    module_name, _, func_name = target.partition(':')
+    module = importlib.import_module(module_name)
+    monkeypatch.setattr(sys, 'argv', [name, '--help'])
+    with pytest.raises(SystemExit) as e:
+        getattr(module, func_name)()
+    assert e.value.code == 0
+    assert capsys.readouterr().out.startswith('usage:')

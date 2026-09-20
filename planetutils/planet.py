@@ -25,12 +25,17 @@ class PlanetBase(object):
         d, p = os.path.split(osmpath)
         self.osmosis_workdir = osmosis_workdir or os.path.join(d, '%s.workdir'%p)
 
-    def command(self, args):
-        log.debug(args)
+    def _run(self, args):
+        # Single seam through which every external command is executed.
+        # Tests replace this to capture argv without needing the binaries.
         return subprocess.check_output(
             args,
             shell=False
         ).decode('utf-8')
+
+    def command(self, args):
+        log.debug(args)
+        return self._run(args)
 
     def osmosis(self, *args):
         return self.command(['osmosis'] + list(args))
@@ -135,7 +140,7 @@ class PlanetDownloader(PlanetBase):
 
 class PlanetDownloaderHttp(PlanetBase):
     def _download(self, url, outpath):
-        subprocess.check_output([
+        self.command([
             'curl',
             '-L',
             '-o', outpath,
