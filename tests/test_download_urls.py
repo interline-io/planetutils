@@ -8,6 +8,7 @@ These pin behavior that is about to be rewritten:
 Nothing here touches the network.
 """
 import pytest
+import responses
 
 from planetutils import download
 from planetutils.elevation_tile_downloader import (
@@ -83,47 +84,28 @@ class TestTilepackDownloaderUrls:
         assert curl_calls[0][2] == {'compressed': True}
 
 
-class TestDownloadCurlArgv:
-    """CHARACTERIZATION: `--compressed` is appended when compressed is FALSE.
+class TestDownloadCompressionSemantics:
+    """`compressed` used to control curl's --compressed flag; it now controls
+    the Accept-Encoding header. The meaning is unchanged: when the payload is
+    already compressed, ask for it verbatim."""
 
-    This reads inverted, but is plausibly deliberate: don't ask curl to
-    transparently gunzip a payload that is already gzipped. Pinned here so any
-    change to it is a separate, reviewable commit.
-    """
-
-    @pytest.fixture
-    def popen_argv(self, monkeypatch):
-        seen = {}
-
-        class FakeProc:
-            def communicate(self):
-                return (b'', b'')
-
-            def wait(self):
-                return 0
-
-        def fake_popen(args, **kw):
-            seen['argv'] = args
-            return FakeProc()
-
-        monkeypatch.setattr(download.subprocess, 'Popen', fake_popen)
-        return seen
-
-    def test_not_compressed_appends_compressed_flag(self, popen_argv, tmp_path):
-        download.download_curl('https://example.org/x', str(tmp_path / 'o'),
-                               compressed=False)
-        assert popen_argv['argv'][-1] == '--compressed'
-
-    def test_compressed_omits_the_flag(self, popen_argv, tmp_path):
+    @responses.activate
+    def test_compressed_true_requests_identity(self, tmp_path):
+        responses.add(responses.GET, 'https://example.org/x', body=b'D',
+                      status=200)
         download.download_curl('https://example.org/x', str(tmp_path / 'o'),
                                compressed=True)
-        assert '--compressed' not in popen_argv['argv']
+        assert responses.calls[0].request.headers[
+            'Accept-Encoding'] == 'identity'
 
-    def test_base_argv_shape(self, popen_argv, tmp_path):
-        out = str(tmp_path / 'o')
-        download.download_curl('https://example.org/x', out, compressed=True)
-        assert popen_argv['argv'] == [
-            'curl', '-L', '--fail', '-o', out, 'https://example.org/x']
+    @responses.activate
+    def test_compressed_false_allows_transfer_compression(self, tmp_path):
+        responses.add(responses.GET, 'https://example.org/x', body=b'D',
+                      status=200)
+        download.download_curl('https://example.org/x', str(tmp_path / 'o'),
+                               compressed=False)
+        assert responses.calls[0].request.headers.get(
+            'Accept-Encoding') != 'identity'
 
 
 class TestElevationTileUrls:

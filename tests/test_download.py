@@ -1,11 +1,14 @@
-"""Characterization tests for planetutils.download.
+"""Tests for planetutils.download.
 
-These pin the current, partly-broken behavior of the HTTP layer before it is
-rewritten onto requests. Two tests are marked xfail(strict=True): they assert
-the DESIRED behavior, so when the rewrite lands they flip to passing and the
-strict marker forces the marker itself to be removed.
+This layer used to shell out to curl, and piped curl into `gzip -d` for the
+Skadi format. It is now pure requests + stdlib gzip. The tests that
+previously documented the silent-failure bugs now assert the fixed behavior.
 """
+import gzip
+import io
+
 import pytest
+import requests
 import responses
 
 from planetutils import download
@@ -22,110 +25,120 @@ class TestDownload:
         assert out.read_bytes() == b'RASTERBYTES'
 
     @responses.activate
-    @pytest.mark.xfail(strict=True, reason='no raise_for_status(); rewrite on requests fixes this')
-    def test_error_response_should_not_be_written_to_disk(self, tmp_path):
-        """THE BUG: a 403 body is written as if it were a tile.
+    def test_error_response_raises_and_writes_nothing(self, tmp_path):
+        """A 403 body must never be cached as if it were a tile.
 
-        tile_exists() then reports the file as present forever, which is how a
-        0-byte / error-XML .hgt ends up permanently cached in a data dir.
+        This is what produced a permanently-cached bad .hgt in a real data
+        directory: the error body was written, and tile_exists() then
+        reported the tile present forever.
         """
         responses.add(responses.GET, URL, body=b'<Error>AccessDenied</Error>',
                       status=403)
         out = tmp_path / 'tile.tif'
-        with pytest.raises(Exception):
+        with pytest.raises(requests.HTTPError):
             download.download(URL, str(out))
         assert not out.exists()
 
     @responses.activate
-    def test_current_behavior_writes_the_error_body(self, tmp_path):
-        # CHARACTERIZATION of the bug above. Delete this when it is fixed.
-        responses.add(responses.GET, URL, body=b'<Error>AccessDenied</Error>',
-                      status=403)
-        out = tmp_path / 'tile.tif'
-        download.download(URL, str(out))
-        assert out.read_bytes() == b'<Error>AccessDenied</Error>'
+    def test_404_raises(self, tmp_path):
+        responses.add(responses.GET, URL, status=404)
+        with pytest.raises(requests.HTTPError):
+            download.download(URL, str(tmp_path / 'tile.tif'))
 
     @responses.activate
-    @pytest.mark.xfail(strict=True, reason='no timeout passed; rewrite on requests fixes this')
-    def test_should_pass_a_timeout(self, tmp_path):
+    def test_no_part_file_is_left_behind_on_failure(self, tmp_path):
+        responses.add(responses.GET, URL, status=500)
+        out = tmp_path / 'tile.tif'
+        with pytest.raises(requests.HTTPError):
+            download.download(URL, str(out))
+        assert list(tmp_path.iterdir()) == []
+
+    def test_passes_a_timeout(self, tmp_path, monkeypatch):
         captured = {}
-        real_get = download.requests.get
+
+        class FakeResponse:
+            status_code = 200
+            raw = io.BytesIO(b'x')
+
+            def raise_for_status(self):
+                pass
 
         def spy(url, **kw):
             captured.update(kw)
-            return real_get(url, **kw)
+            return FakeResponse()
 
-        responses.add(responses.GET, URL, body=b'x', status=200)
-        download.requests.get = spy
-        try:
-            download.download(URL, str(tmp_path / 'o'))
-        finally:
-            download.requests.get = real_get
+        monkeypatch.setattr(download.requests, 'get', spy)
+        download.download(URL, str(tmp_path / 'o'))
         assert captured.get('timeout') is not None
 
 
 class TestDownloadGzip:
-    """download_gzip currently pipes curl into gzip -d via two Popens.
-
-    It checks neither exit code, so a 404 silently produces a truncated or
-    empty output file -- the direct cause of the 0-byte .hgt observed in a
-    real data directory.
-    """
-
-    @pytest.mark.xfail(strict=True, reason='exit codes unchecked; rewrite on requests+gzip fixes this')
-    def test_http_error_should_raise(self, tmp_path, monkeypatch):
-        class FailingProc:
-            def __init__(self, *a, **kw):
-                self.stdout = None
-                self.returncode = 22
-
-            def wait(self):
-                return 22
-
-        monkeypatch.setattr(download.subprocess, 'Popen', FailingProc)
-        out = tmp_path / 'tile.hgt'
-        with pytest.raises(Exception):
-            download.download_gzip(URL, str(out))
-
-    def test_current_behavior_swallows_failure(self, tmp_path, monkeypatch):
-        # CHARACTERIZATION: a failing pipeline leaves a 0-byte file behind and
-        # raises nothing at all.
-        class FailingProc:
-            def __init__(self, *a, **kw):
-                self.stdout = None
-
-            def wait(self):
-                return 22
-
-        monkeypatch.setattr(download.subprocess, 'Popen', FailingProc)
+    @responses.activate
+    def test_decompresses_body(self, tmp_path):
+        payload = b'ELEVATIONDATA' * 100
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode='wb') as f:
+            f.write(payload)
+        responses.add(responses.GET, URL, body=buf.getvalue(), status=200)
         out = tmp_path / 'tile.hgt'
         download.download_gzip(URL, str(out))
-        assert out.exists()
-        assert out.stat().st_size == 0
+        assert out.read_bytes() == payload
+
+    @responses.activate
+    def test_http_error_raises(self, tmp_path):
+        responses.add(responses.GET, URL, status=404)
+        out = tmp_path / 'tile.hgt'
+        with pytest.raises(requests.HTTPError):
+            download.download_gzip(URL, str(out))
+        assert not out.exists()
+
+    @responses.activate
+    def test_requests_identity_encoding(self, tmp_path):
+        """The payload is already gzipped, so don't ask for transfer
+        compression on top of it -- this is what curl's absent --compressed
+        flag used to express."""
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode='wb') as f:
+            f.write(b'x')
+        responses.add(responses.GET, URL, body=buf.getvalue(), status=200)
+        download.download_gzip(URL, str(tmp_path / 'o'))
+        assert responses.calls[0].request.headers['Accept-Encoding'] == 'identity'
 
 
 class TestDownloadCurl:
-    def test_raises_on_nonzero_exit(self, tmp_path, monkeypatch):
-        class Proc:
-            def communicate(self):
-                return (b'', b'error')
+    """Still named download_curl (it is public API) but no longer uses curl."""
 
-            def wait(self):
-                return 22
+    @responses.activate
+    def test_writes_body(self, tmp_path):
+        responses.add(responses.GET, URL, body=b'DATA', status=200)
+        out = tmp_path / 'o'
+        download.download_curl(URL, str(out))
+        assert out.read_bytes() == b'DATA'
 
-        monkeypatch.setattr(download.subprocess, 'Popen',
-                            lambda *a, **kw: Proc())
-        with pytest.raises(Exception, match='Error downloading'):
+    @responses.activate
+    def test_raises_on_error_status(self, tmp_path):
+        responses.add(responses.GET, URL, status=500)
+        with pytest.raises(requests.HTTPError):
             download.download_curl(URL, str(tmp_path / 'o'))
 
-    def test_succeeds_on_zero_exit(self, tmp_path, monkeypatch):
-        class Proc:
-            def communicate(self):
-                return (b'', b'')
+    @responses.activate
+    def test_compressed_true_requests_identity(self, tmp_path):
+        responses.add(responses.GET, URL, body=b'DATA', status=200)
+        download.download_curl(URL, str(tmp_path / 'o'), compressed=True)
+        assert responses.calls[0].request.headers['Accept-Encoding'] == 'identity'
 
-            def wait(self):
-                return 0
+    @responses.activate
+    def test_compressed_false_allows_transfer_compression(self, tmp_path):
+        responses.add(responses.GET, URL, body=b'DATA', status=200)
+        download.download_curl(URL, str(tmp_path / 'o'), compressed=False)
+        assert responses.calls[0].request.headers.get(
+            'Accept-Encoding') != 'identity'
 
-        monkeypatch.setattr(download.subprocess, 'Popen',
-                            lambda *a, **kw: Proc())
-        download.download_curl(URL, str(tmp_path / 'o'))
+    @responses.activate
+    def test_does_not_log_the_url(self, tmp_path, caplog):
+        """The URL can carry an api_token; it must not reach the logs."""
+        secret = URL + '?api_token=SECRET'
+        responses.add(responses.GET, secret, body=b'DATA', status=200)
+        with caplog.at_level('DEBUG'):
+            download.download_curl(secret, str(tmp_path / 'o'))
+        assert 'SECRET' not in caplog.text
