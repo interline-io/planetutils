@@ -44,7 +44,7 @@ class TestElevationSkadiDownloader(unittest.TestCase):
     def download_bbox(self, e, method, args, expect):
         COUNT = []
         # def c(self, url, op):
-        def c(self, bucket, prefix, z, x, y, suffix=''):
+        def c(self, bucket, prefix, z, x, y, suffix='', session=None):
             COUNT.append([x, y])
         e.download_tile = types.MethodType(c, ElevationSkadiDownloader)
         method(*args)

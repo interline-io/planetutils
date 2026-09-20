@@ -11,8 +11,11 @@ macOS, Linux and Windows, and they fail loudly.
 import gzip
 import os
 import shutil
+import threading
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from . import log
 
@@ -28,8 +31,58 @@ LARGE_FILE_TIMEOUT = (10, 900)
 
 CHUNK_SIZE = 1024 * 1024
 
+# Retry policy. urllib3 supplies the backoff, the retryable status list,
+# Retry-After handling and its cap, so there is no retry loop here.
+# retry_after_max matters: without it a proxy answering `Retry-After: 3600`
+# parks a worker thread for an hour per attempt.
+RETRY = Retry(
+    total=5,
+    connect=5,
+    read=5,
+    status=5,
+    backoff_factor=0.5,
+    status_forcelist=(408, 429, 500, 502, 503, 504),
+    allowed_methods=frozenset(['GET']),
+    respect_retry_after_header=True,
+    retry_after_max=60,
+    raise_on_status=False,
+)
 
-def _get(url, compressed=False, timeout=TIMEOUT):
+DEFAULT_POOL_SIZE = 16
+
+_default_session = None
+_default_session_lock = threading.Lock()
+
+
+def make_session(pool_size=DEFAULT_POOL_SIZE):
+    """A requests Session with connection pooling and retries.
+
+    Reusing one Session keeps TLS connections alive across a run, which
+    matters more than bandwidth here: tile downloads are latency-bound.
+    """
+    session = requests.Session()
+    # pool_connections is the count of cached per-host pools; every tile
+    # comes from one S3 host, so pool_maxsize is the knob that matters.
+    adapter = HTTPAdapter(max_retries=RETRY, pool_maxsize=pool_size)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session
+
+
+def get_default_session():
+    """A lazily created, process-wide retrying session.
+
+    Used whenever a caller passes none, so every download gets retries and
+    pooling rather than falling back to a bare requests.get.
+    """
+    global _default_session
+    with _default_session_lock:
+        if _default_session is None:
+            _default_session = make_session()
+        return _default_session
+
+
+def _get(url, compressed=False, timeout=TIMEOUT, session=None):
     """Start a streaming GET, raising on any error status.
 
     `compressed` mirrors the old curl behavior: when the payload is already
@@ -37,7 +90,9 @@ def _get(url, compressed=False, timeout=TIMEOUT):
     transfer compression (curl's --compressed).
     """
     headers = {'Accept-Encoding': 'identity'} if compressed else {}
-    r = requests.get(url, stream=True, timeout=timeout, headers=headers)
+    if session is None:
+        session = get_default_session()
+    r = session.get(url, stream=True, timeout=timeout, headers=headers)
     try:
         r.raise_for_status()
     except BaseException:
@@ -70,26 +125,27 @@ def _write_atomically(response, outpath, transform=None):
         raise
 
 
-def download(url, outpath):
+def download(url, outpath, session=None):
     """Download `url` to `outpath`."""
-    r = _get(url)
+    r = _get(url, session=session)
     r.raw.decode_content = True
     _write_atomically(r, outpath)
 
 
-def download_gzip(url, outpath):
+def download_gzip(url, outpath, session=None):
     """Download a gzipped `url`, writing the decompressed body to `outpath`.
 
     Replaces the old `curl ... | gzip -d` pipeline, which left zombie
     processes, could hang when the reader exited early, and checked neither
     process's exit status.
     """
-    r = _get(url, compressed=True)
+    r = _get(url, compressed=True, session=session)
     _write_atomically(r, outpath, transform=lambda resp: gzip.GzipFile(
         fileobj=resp.raw, mode='rb'))
 
 
-def download_curl(url, outpath, compressed=False, timeout=TIMEOUT):
+def download_curl(url, outpath, compressed=False, timeout=TIMEOUT,
+                  session=None):
     """Download `url` to `outpath`.
 
     Kept under its original name because it is part of the module's public
@@ -101,7 +157,7 @@ def download_curl(url, outpath, compressed=False, timeout=TIMEOUT):
     log.info("Downloading to %s" % outpath)
     # NOTE: the URL is deliberately not logged. It can carry an api_token in
     # its query string, which would otherwise end up in logs.
-    r = _get(url, compressed=compressed, timeout=timeout)
+    r = _get(url, compressed=compressed, timeout=timeout, session=session)
     r.raw.decode_content = True
     _write_atomically(r, outpath)
     log.info("Done")

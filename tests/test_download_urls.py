@@ -117,7 +117,7 @@ class TestElevationTileUrls:
         # download_gzip), so patching only the base class would let the Skadi
         # cases make real network calls.
         captured = []
-        recorder = lambda self, url, op: captured.append(url)  # noqa: E731
+        recorder = lambda self, url, op, session=None: captured.append(url)  # noqa: E731
         for kls in (ElevationDownloader, ElevationGeotiffDownloader,
                     ElevationSkadiDownloader):
             monkeypatch.setattr(kls, '_download', recorder)

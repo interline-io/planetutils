@@ -63,11 +63,13 @@ class TestDownload:
             def raise_for_status(self):
                 pass
 
-        def spy(url, **kw):
-            captured.update(kw)
-            return FakeResponse()
+        class FakeSession:
+            def get(self, url, **kw):
+                captured.update(kw)
+                return FakeResponse()
 
-        monkeypatch.setattr(download.requests, 'get', spy)
+        monkeypatch.setattr(download, 'get_default_session',
+                            lambda: FakeSession())
         download.download(URL, str(tmp_path / 'o'))
         assert captured.get('timeout') is not None
 
@@ -146,28 +148,27 @@ class TestDownloadCurl:
 
 class TestConnectionHandling:
     @responses.activate
-    def test_error_response_is_closed(self, tmp_path):
+    def test_error_response_is_closed(self, tmp_path, monkeypatch):
         """With stream=True the pooled connection is only released once the
         body is read or closed; an unread error body leaks it."""
         responses.add(responses.GET, URL, body=b'<Error/>', status=403)
         closed = []
-        real_get = download.requests.get
+        real_session = download.get_default_session()
 
-        def spy(url, **kw):
-            r = real_get(url, **kw)
-            original_close = r.close
+        class TrackingSession:
+            def get(self, url, **kw):
+                r = real_session.get(url, **kw)
+                original_close = r.close
 
-            def tracking_close():
-                closed.append(True)
-                original_close()
+                def tracking_close():
+                    closed.append(True)
+                    original_close()
 
-            r.close = tracking_close
-            return r
+                r.close = tracking_close
+                return r
 
-        download.requests.get = spy
-        try:
-            with pytest.raises(requests.HTTPError):
-                download.download(URL, str(tmp_path / 'o'))
-        finally:
-            download.requests.get = real_get
+        monkeypatch.setattr(download, 'get_default_session',
+                            lambda: TrackingSession())
+        with pytest.raises(requests.HTTPError):
+            download.download(URL, str(tmp_path / 'o'))
         assert closed, 'error response was not closed'
