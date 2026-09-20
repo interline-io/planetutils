@@ -3,8 +3,9 @@ import argparse
 import sys
 
 from . import log
-from .bbox import load_features_csv, load_feature_string
+from .bbox import load_feature_string, load_features_csv
 from .elevation_tile_downloader import ElevationGeotiffDownloader, ElevationSkadiDownloader
+
 
 def main():
     parser = argparse.ArgumentParser()

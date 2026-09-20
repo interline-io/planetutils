@@ -1,14 +1,12 @@
 #!/usr/bin/env python
-from urllib.parse import urlparse, urlencode
-from urllib.request import urlopen
-
-import re
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-import json
+from urllib.request import urlopen
 
 from . import log
 from .bbox import validate_bbox
@@ -67,7 +65,7 @@ def require_binary(name):
         '%s not found on PATH.\n%s' % (name, INSTALL_HINTS.get(name, '')))
 
 
-class PlanetBase(object):
+class PlanetBase:
     # Set by extract_commands(): when commands are only being printed, any
     # config file they reference has to outlive the call.
     keep_config = False
@@ -195,7 +193,7 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
 class PlanetExtractorOsmium(PlanetExtractor):
     def extract_bboxes(self, bboxes, workers=1, outpath='.', strategy='complete_ways', **kw):
         extracts = []
-        for name, bbox in bboxes.items():            
+        for name, bbox in bboxes.items():
             ext = {
                 'output': '%s.osm.pbf'%name,
                 'output_format': 'pbf',
@@ -284,7 +282,7 @@ class PlanetUpdater(PlanetBase):
 
 class PlanetUpdaterOsmium(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, size='1024', **kw):
-        changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain        
+        changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain
         if not os.path.exists(self.osmpath):
             raise Exception('planet file does not exist: %s'%self.osmpath)
         self.command(['pyosmium-up-to-date', '-s', size, '--server',
@@ -308,7 +306,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
             raise Exception('workdir exists and is not a directory: %s'%self.osmosis_workdir)
         try:
             os.makedirs(self.osmosis_workdir)
-        except OSError as e:
+        except OSError:
             pass
         self.osmosis(
             '--read-replication-interval-init',

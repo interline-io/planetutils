@@ -1,24 +1,24 @@
 #!/usr/bin/env python
-import os
 import math
+import os
 
-from . import download
-from . import log
+from . import download, log
 from .bbox import validate_bbox
+
 
 def makedirs(path):
     try:
         os.makedirs(path)
-    except OSError as e:
+    except OSError:
         pass
 
-class ElevationDownloader(object):
+class ElevationDownloader:
     """Downloads elevation tiles from AWS Open Data Registry's Terrain Tiles dataset.
-    
+
     This class handles downloading of elevation data from the Terrain Tiles dataset
     hosted on AWS S3. The dataset is available in both US (us-east-1) and EU (eu-central-1)
     regions through the buckets elevation-tiles-prod and elevation-tiles-prod-eu respectively.
-    
+
     Data source: https://registry.opendata.aws/terrain-tiles/
     """
     def __init__(self, outpath='.', region='us-east-1'):
@@ -38,9 +38,9 @@ class ElevationDownloader(object):
         self.download_bbox([-180, -90, 180, 90])
 
     def download_bboxes(self, bboxes):
-        for name, bbox in bboxes.items():
+        for _name, bbox in bboxes.items():
             self.download_bbox(bbox)
-    
+
     def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='geotiff'):
         tiles = self.get_bbox_tiles(bbox)
         found = set()
@@ -68,19 +68,19 @@ class ElevationDownloader(object):
         makedirs(os.path.join(self.outpath, *od[:-1]))
         if prefix:
             od = [prefix]+od
-        
+
         # Use the region-specific bucket if available
         actual_bucket = self.get_bucket_for_region(bucket)
-        
+
         # Use virtual-hosted style URL
         if self.region == 'us-east-1':
             url = f'https://{actual_bucket}.s3.amazonaws.com/{"/".join(od)}{suffix}'
         else:
             url = f'https://{actual_bucket}.s3.{self.region}.amazonaws.com/{"/".join(od)}{suffix}'
-            
+
         log.info("downloading %s to %s"%(url, op))
         self._download(url, op)
-        
+
     def tile_path(self, z, x, y):
         raise NotImplementedError
 
@@ -93,7 +93,7 @@ class ElevationDownloader(object):
 class ElevationGeotiffDownloader(ElevationDownloader):
     def __init__(self, *args, **kwargs):
         self.zoom = kwargs.pop('zoom', 0)
-        super(ElevationGeotiffDownloader, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def get_bbox_tiles(self, bbox):
         left, bottom, right, top = validate_bbox(bbox)
@@ -105,9 +105,12 @@ class ElevationGeotiffDownloader(ElevationDownloader):
         if right >= 180:
             right = 179.999
         size = 2**self.zoom
-        xt = lambda x:int((x + 180.0) / 360.0 * size)
-        yt = lambda y:int((1.0 - math.log(math.tan(math.radians(y)) + (1 / math.cos(math.radians(y)))) / math.pi) / 2.0 * size)
-        tiles = []    
+        def xt(x):
+            return int((x + 180.0) / 360.0 * size)
+
+        def yt(y):
+            return int((1.0 - math.log(math.tan(math.radians(y)) + (1 / math.cos(math.radians(y)))) / math.pi) / 2.0 * size)
+        tiles = []
         for x in range(xt(left), xt(right)+1):
             for y in range(yt(top), yt(bottom)+1):
                 tiles.append([self.zoom, x, y])
@@ -118,7 +121,7 @@ class ElevationGeotiffDownloader(ElevationDownloader):
 
 class ElevationSkadiDownloader(ElevationDownloader):
     HGT_SIZE = (3601 * 3601 * 2)
-    
+
     def get_bbox_tiles(self, bbox):
         left, bottom, right, top = validate_bbox(bbox)
         min_x = int(math.floor(left))
@@ -130,17 +133,20 @@ class ElevationSkadiDownloader(ElevationDownloader):
             for y in range(min_y, max_y):
                 tiles.add((0, x, y))
         return tiles
-    
+
     def tile_exists(self, op):
-        if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:	
+        if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:
             return True
 
     def download_tile(self, bucket, prefix, z, x, y, suffix=''):
-        super(ElevationSkadiDownloader, self).download_tile(bucket, 'skadi', z, x, y, suffix='.gz')
+        super().download_tile(bucket, 'skadi', z, x, y, suffix='.gz')
 
     def tile_path(self, z, x, y):
-        ns = lambda i:'S%02d'%abs(i) if i < 0 else 'N%02d'%abs(i)
-        ew = lambda i:'W%03d'%abs(i) if i < 0 else 'E%03d'%abs(i)
+        def ns(i):
+            return 'S%02d'%abs(i) if i < 0 else 'N%02d'%abs(i)
+
+        def ew(i):
+            return 'W%03d'%abs(i) if i < 0 else 'E%03d'%abs(i)
         return [ns(y), '%s%s.hgt'%(ns(y), ew(x))]
 
     def _download(self, url, op):

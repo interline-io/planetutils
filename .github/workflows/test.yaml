@@ -1,0 +1,120 @@
+name: Test
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Full Python sweep on Linux; endpoints only elsewhere. The library
+        # is ~1000 lines, so this is the right cost/coverage trade.
+        os: [ubuntu-latest]
+        python: ['3.11', '3.12', '3.13', '3.14']
+        include:
+          - os: macos-latest      # Apple Silicon
+            python: '3.11'
+          - os: macos-latest
+            python: '3.14'
+          - os: windows-latest
+            python: '3.11'
+          - os: windows-latest
+            python: '3.14'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install the OSM toolchain (Linux only)
+        # osm_planet_extract still needs these. Installing them on one OS
+        # means the binary-backed tests actually execute somewhere; they
+        # skip on macOS and Windows.
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends osmctools osmium-tool
+
+      - run: uv sync --frozen --python ${{ matrix.python }}
+
+      - run: uv run --frozen pytest -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv run --frozen ruff check .
+      # NOTE: `ruff format` is deliberately not enforced. Applying it would
+      # reformat 26 files and bury the substantive changes; worth doing as a
+      # standalone commit if you want it.
+
+  wheel-smoke:
+    name: wheel installs without uv
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+
+      - name: Install the wheel with plain pip, no uv on PATH
+        run: |
+          python -m venv /tmp/plain
+          /tmp/plain/bin/pip install --quiet dist/*.whl
+          for cmd in osm_planet_update osm_planet_extract osm_planet_get_timestamp \
+                     osm_extract_download elevation_tile_download elevation_tile_merge \
+                     valhalla_tilepack_download valhalla_tilepack_list; do
+            /tmp/plain/bin/$cmd --help > /dev/null || { echo "FAILED: $cmd"; exit 1; }
+          done
+
+      - name: Assert the published metadata does not depend on uv
+        run: |
+          python -m zipfile -e dist/*.whl /tmp/whl
+          if grep -ri '^Requires-Dist:.*\buv\b' /tmp/whl/*.dist-info/METADATA; then
+            echo "wheel metadata must not require uv"; exit 1
+          fi
+
+  git-install-smoke:
+    name: install from a git ref
+    runs-on: ubuntu-latest
+    steps:
+      - uses: astral-sh/setup-uv@v5
+      - name: uv tool install from this commit
+        # This is the documented distribution channel, so it gets tested.
+        run: |
+          uv tool install "interline-planetutils @ git+${{ github.server_url }}/${{ github.repository }}@${{ github.sha }}"
+          for cmd in osm_planet_update osm_planet_extract osm_planet_get_timestamp \
+                     osm_extract_download elevation_tile_download elevation_tile_merge \
+                     valhalla_tilepack_download valhalla_tilepack_list; do
+            $cmd --help > /dev/null || { echo "FAILED: $cmd"; exit 1; }
+          done
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: planetutils:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Run the suite with the toolchain required
+        # The container is the one environment guaranteed to have osmosis,
+        # osmconvert and osmium, so nothing is allowed to skip here.
+        run: docker run --rm --entrypoint pytest planetutils:ci --require-binaries -v

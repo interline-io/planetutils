@@ -1,11 +1,11 @@
 import tempfile
-import os
 import unittest
+
+from conftest import TEST_GEOJSON
+
 import planetutils.bbox as bbox
 
 CA = [-126.38,32.15,-113.53,42.24]
-from conftest import TEST_GEOJSON
-
 TESTGEOJSON = str(TEST_GEOJSON)
 
 
@@ -95,7 +95,7 @@ class TestFeature(unittest.TestCase):
             ]
         })
         self.assertEqual(feat.is_rectangle(), False)
-    
+
 
 
 
@@ -142,9 +142,9 @@ class TestLoadBboxGeojson(unittest.TestCase):
         feats = bbox.load_features_geojson(TESTGEOJSON)
         union = (-122.42400169372557, 37.7860125252054, -122.40559101104735, 37.7985943621788)
         pentagon = (-122.39975452423094, 37.78370618798191, -122.38949775695801, 37.791879793952084)
-        for a,b in zip(feats['union'].bbox(), union):
+        for a,b in zip(feats['union'].bbox(), union, strict=True):
             self.assertAlmostEqual(a,b)
-        for a,b in zip(feats['pentagon'].bbox(), pentagon):
+        for a,b in zip(feats['pentagon'].bbox(), pentagon, strict=True):
             self.assertAlmostEqual(a,b)
 
 class TestFlatcoords(unittest.TestCase):

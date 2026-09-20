@@ -11,11 +11,10 @@ import json
 import os
 
 import pytest
+from conftest import PLANET_PBF
 
 import planetutils.planet as planet
 from planetutils.bbox import Feature
-
-from conftest import PLANET_PBF
 
 OSMPATH = str(PLANET_PBF)
 BBOX = [-122.430439, 37.766508, -122.379670, 37.800052]

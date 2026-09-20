@@ -1,2 +1,27 @@
-*.osm
 .git
+.github
+.venv
+virtualenv
+
+# Local output directories. data/ is gitignored and can be hundreds of MB;
+# with `COPY . /app` it was previously shipped into the image.
+data
+test_tiles
+
+*.osm
+*.osm.pbf
+*.pbf
+*.tif
+*.hgt
+*.hgt.gz
+
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+dist
+build
+*.egg-info
+.DS_Store

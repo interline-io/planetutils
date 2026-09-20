@@ -3,6 +3,7 @@ import argparse
 import os
 
 from . import log
+from .cli import handle_missing_binary
 from .planet import (
     PlanetDownloaderHttp,
     PlanetDownloaderS3,
@@ -10,6 +11,8 @@ from .planet import (
     PlanetUpdaterOsmosis,
 )
 
+
+@handle_missing_binary
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('osmpath', help='Name or path to existing OSM planet file. Will be created and downloaded, if it does not exist.')

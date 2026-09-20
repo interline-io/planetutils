@@ -3,9 +3,10 @@ import argparse
 
 from .tilepack_downloader import TilepackDownloader
 
+
 def main():
     parser = argparse.ArgumentParser(usage="List Valhalla Tilepacks.")
-    args = parser.parse_args()
+    parser.parse_args()
     downloader = TilepackDownloader()
     downloader.list()
 

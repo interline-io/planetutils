@@ -1,11 +1,11 @@
+import os
 import tempfile
 import types
-import os
 import unittest
-import pytest
+
+from conftest import PLANET_PBF, PLANET_PBF_TIMESTAMP, needs
 
 import planetutils.planet as planet
-from conftest import PLANET_PBF, PLANET_PBF_TIMESTAMP, needs
 
 TESTFILE = str(PLANET_PBF)
 TESTFILE_TIMESTAMP = PLANET_PBF_TIMESTAMP
@@ -24,13 +24,13 @@ class TestPlanetBase(unittest.TestCase):
             '--write-xml','-'
         )
         self.assertTrue(output.count('way id=') > 0)
-    
+
     @needs('osmconvert')
     def test_osmconvert(self):
         p = planet.PlanetBase(TESTFILE)
         output = p.osmconvert(p.osmpath, '--out-statistics')
         self.assertIn('timestamp min:', output)
-    
+
     @needs('osmconvert')
     def test_get_timestamp(self):
         p = planet.PlanetBase(TESTFILE)
@@ -73,6 +73,6 @@ class TestPlanetDownloaderHttp(unittest.TestCase):
         p._download = types.MethodType(c, planet.PlanetDownloaderHttp)
         p.download_planet()
         self.assertEqual(COUNT[0], ['https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf', 'test.osm.pbf'])
-        
+
 if __name__ == '__main__':
     unittest.main()

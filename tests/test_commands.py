@@ -8,7 +8,6 @@ import importlib
 import tomllib
 
 import pytest
-
 from conftest import REPO_ROOT
 
 
@@ -49,11 +48,33 @@ def test_osm_planet_update_defaults_to_osmium(capsys):
     """osmium needs no system binaries; osmosis needs Java. The container
     script planetutils.sh already defaults to osmium."""
     import sys
-    import pytest as _pytest
-    from planetutils import osm_planet_update
     import unittest.mock as mock
+
+    import pytest as _pytest
+
+    from planetutils import osm_planet_update
     with mock.patch.object(sys, 'argv', ['osm_planet_update', '--help']):
         with _pytest.raises(SystemExit):
             osm_planet_update.main()
     out = capsys.readouterr().out
     assert 'osmium (default' in out
+
+
+def test_missing_binary_is_reported_cleanly(monkeypatch, capsys):
+    """A missing external tool must be a message and exit 1, not a traceback."""
+    import sys
+
+    import pytest as _pytest
+
+    from planetutils import osm_planet_extract, planet
+    monkeypatch.setattr(planet.shutil, 'which', lambda n: None)
+    monkeypatch.setattr(planet.os.path, 'isfile', lambda p: False)
+    monkeypatch.setattr(sys, 'argv', [
+        'osm_planet_extract', '--toolchain=osmium',
+        '--bbox=-1,-1,1,1', '--name=x', 'planet.osm.pbf'])
+    with _pytest.raises(SystemExit) as e:
+        osm_planet_extract.main()
+    assert e.value.code == 1
+    err = capsys.readouterr().err
+    assert err.startswith('error: osmium not found on PATH')
+    assert 'Traceback' not in err

@@ -2,8 +2,11 @@
 import argparse
 
 from . import log
+from .cli import handle_missing_binary
 from .planet import Planet
 
+
+@handle_missing_binary
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('osmpath', help='OSM file')

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import os
 import argparse
+import os
 
 from . import log
 from .tilepack_downloader import TilepackDownloader
+
 
 def main():
     parser = argparse.ArgumentParser(usage="Valhalla Tilepack Download tool. If no Tilepack ID is provided, the latest Tilepack is used.")

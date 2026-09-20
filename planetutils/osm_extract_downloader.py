@@ -1,10 +1,9 @@
-from urllib.parse import urlparse, urlencode, urlsplit, parse_qs, urlunsplit
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
-
-from . import log
 from . import download
 
-class OsmExtractDownloader(object):
+
+class OsmExtractDownloader:
     HOST = 'https://app.interline.io'
     def download(self, outpath, osm_extract_id, osm_extract_version='latest', data_format='pbf', api_token=None):
         # Endpoint

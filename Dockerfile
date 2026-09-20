@@ -1,30 +1,42 @@
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.io>"
+LABEL org.opencontainers.image.source=https://github.com/interline-io/planetutils
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update -y && apt-get install \
-      python3 \
-      python3-pip \
-      pypy-setuptools \
-      curl \
-      osmosis \
-      osmctools \
-      osmium-tool \
-      pyosmium \
-      libgdal-dev \
-      gdal-bin \
-      awscli \
-      software-properties-common \
-      -y
 
-# Ubuntu Java SSL issue - https://stackoverflow.com/questions/6784463/error-trustanchors-parameter-must-be-non-empty/25188331#25188331
-RUN /usr/bin/printf '\xfe\xed\xfe\xed\x00\x00\x00\x02\x00\x00\x00\x00\xe2\x68\x6e\x45\xfb\x43\xdf\xa4\xd9\x92\xdd\x41\xce\xb6\xb2\x1c\x63\x30\xd7\x92' > /etc/ssl/certs/java/cacerts
-RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
+# Only osm_planet_extract still needs system binaries: a correct bbox
+# extract requires reference completion (osmium's complete_ways/smart
+# strategies), which pyosmium does not expose. Everything else -- downloads,
+# tile merging, timestamps, planet updates -- runs from Python wheels.
+#
+# osmosis is kept for --toolchain=osmosis and pulls in a JRE.
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        osmosis \
+        osmctools \
+        osmium-tool \
+        python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
-COPY . /app
-RUN python3 setup.py test
-RUN pip3 install . && pip3 install boto3
+
+# Dependencies first, so a source change does not invalidate the layer.
+COPY pyproject.toml uv.lock README.md LICENSE.txt ./
+RUN uv sync --frozen --no-install-project
+
+COPY planetutils ./planetutils
+COPY tests ./tests
+COPY examples ./examples
+# Dev dependencies are included so the image can run its own test suite.
+# CI does exactly that with --require-binaries: the container is the one
+# environment guaranteed to have osmosis, osmconvert and osmium, so nothing
+# is allowed to skip there.
+RUN uv sync --frozen
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 COPY planetutils.sh /scripts/planetutils.sh
 

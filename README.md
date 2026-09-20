@@ -54,7 +54,7 @@ PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.o
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull ghcr.io/interline-io/planetutils:v0.4.14
+docker pull ghcr.io/interline-io/planetutils:v0.5.0
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -62,7 +62,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t ghcr.io/interline-io/planetutils:v0.4.14 <command>
+docker run --rm -v ${PWD}/data:/data -t ghcr.io/interline-io/planetutils:v0.5.0 <command>
 ```
 
 ### Using Homebrew on Mac OS
@@ -75,21 +75,80 @@ brew install interline-io/planetutils/planetutils
 
 ### Using Python package
 
-If you want to install and use the Python package directly, you'll need to provide:
+Requires **Python 3.11 or newer**. The package is not published to PyPI; install it
+straight from a git tag:
 
-- Python 2.x or 3.x
-- Java and [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis)
-- [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/)
-- [Osmium Tool](https://osmcode.org/osmium-tool/)
-- [PyOsmium](https://osmcode.org/pyosmium/)
-- [GDAL](https://www.gdal.org/) (both binaries and Python scripts)
+```sh
+uv tool install "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.0"
+```
 
-Then clone this repo, run the tests, and install the Python package:
+or with pip:
+
+```sh
+pip install "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.0"
+```
+
+#### System dependencies
+
+Most commands need **no system binaries at all** -- OSM and raster handling come from
+the `osmium` and `rasterio` wheels, which ship prebuilt for macOS (Apple Silicon and
+Intel), Linux (x86_64 and arm64) and Windows.
+
+The one exception is `osm_planet_extract`, which still shells out. A correct bounding-box
+extract needs reference completion (osmium's `complete_ways` / `smart` strategies), and
+pyosmium does not expose a spatial filter.
+
+| Command | System binaries required |
+| --- | --- |
+| `osm_planet_update` | none (default `--toolchain=osmium`); `--toolchain=osmosis` needs Java + Osmosis |
+| `osm_planet_extract` | **yes** -- [Osmium Tool](https://osmcode.org/osmium-tool/), [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis), or [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/) |
+| `osm_planet_get_timestamp` | none |
+| `osm_extract_download` | none |
+| `elevation_tile_download` | none |
+| `elevation_tile_merge` | none |
+| `valhalla_tilepack_download` | none |
+| `valhalla_tilepack_list` | none |
+
+To install Osmium Tool for `osm_planet_extract`:
+
+```sh
+brew install osmium-tool                      # macOS
+sudo apt install osmium-tool                  # Debian/Ubuntu
+conda install conda-forge::osmium-tool        # Windows
+```
+
+Or skip it entirely and use the Docker container, which bundles the full toolchain.
+
+Downloading a planet from S3 with `osm_planet_update --s3` needs `boto3`:
+
+```sh
+uv tool install --with boto3 "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.0"
+```
+
+#### Developing
+
+This project uses [uv](https://docs.astral.sh/uv/), with a committed lockfile for
+reproducible environments:
 
 ```sh
 git clone https://github.com/interline-io/planetutils.git
-python ./setup.py test
-pip install .
+cd planetutils
+uv sync
+uv run pytest
+```
+
+uv is not required. The packaging is standard PEP 621, so pip works too:
+
+```sh
+pip install -e . --group dev
+pytest
+```
+
+Tests that need an external binary skip automatically when it is absent. To make them
+fail instead -- as CI does inside the container, where the toolchain is guaranteed:
+
+```sh
+uv run pytest --require-binaries
 ```
 
 ## Command-line Usage
@@ -306,8 +365,14 @@ PlanetUtils wraps up a number of libraries, including Osmosis, Osmium, and OSM C
 
  | PlanetUtils command | argument flag | default | options |
  | ------------------- | ------------- | ------- | ------- |
- | `osm_planet_update` | `--toolchain` | `osmosis` | `osmosis`, `osmium` |
+ | `osm_planet_update` | `--toolchain` | `osmium` | `osmium`, `osmosis` |
  | `osm_planet_extract` | `--toolchain` | `osmosis` | `osmosis`, `osmium`, `osmctools` |
+
+**Changed in 0.5.0:** `osm_planet_update` now defaults to `--toolchain=osmium` rather
+than `osmosis`. Osmium needs no system binaries on any platform, because
+`pyosmium-up-to-date` ships inside the `osmium` wheel, whereas Osmosis requires Java.
+The container entrypoint already defaulted to osmium, so the CLI and the container now
+agree. `--toolchain=osmosis` still works.
 
 If you are using `osm_planet_extract` with `--toolchain=osmium`, you can also use the `--strategy=` option to select `simple, complete_ways (default) or smart`.
 

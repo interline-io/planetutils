@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import os
 import argparse
+import os
 
 from . import log
 from .osm_extract_downloader import OsmExtractDownloader
+
 
 def main():
     parser = argparse.ArgumentParser(usage="OSM Extract Download tool.")

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
+import csv
 import json
 import os
-import csv
+
 
 def flatcoords(coords, fc=None):
     if fc is None:
@@ -14,7 +15,7 @@ def flatcoords(coords, fc=None):
         fc.append(coords)
     return fc
 
-class Feature(object):
+class Feature:
     def __init__(self, properties=None, geometry=None, **kwargs):
         self.properties = properties or {}
         self.geometry = geometry or {}
@@ -22,7 +23,6 @@ class Feature(object):
             self.set_bbox([0.0, 0.0, 0.0, 0.0])
 
     def bbox(self):
-        gt = self.geometry.get('type')
         coords = self.geometry.get('coordinates', [])
         fc = flatcoords(coords)
         lons = [i[0] for i in fc]
@@ -43,13 +43,13 @@ class Feature(object):
 
     def is_rectangle(self):
         fc = flatcoords(self.geometry.get('coordinates', []))
-        lons = set([i[0] for i in fc])
-        lats = set([i[1] for i in fc])
+        lons = {i[0] for i in fc}
+        lats = {i[1] for i in fc}
         return len(lons) <= 2 and len(lats) <= 2
 
     # act like [left, bottom, right, top]
     def __getitem__(self, item):
-        return self.bbox()[item] 
+        return self.bbox()[item]
 
 
 def validate_bbox(bbox):
@@ -66,7 +66,7 @@ def load_feature_string(bbox):
     f = Feature()
     f.set_bbox(bbox.split(','))
     return f
-    
+
 def load_features_csv(csvpath):
     # bbox csv format:
     # name, left, bottom, right, top

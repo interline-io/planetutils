@@ -13,10 +13,9 @@ import datetime
 import re
 
 import pytest
+from conftest import PLANET_PBF, PLANET_PBF_TIMESTAMP
 
 import planetutils.planet as planet
-
-from conftest import PLANET_PBF, PLANET_PBF_TIMESTAMP
 
 OSMPATH = str(PLANET_PBF)
 
@@ -80,5 +79,5 @@ class TestGetTimestamp:
 
     def test_missing_file_raises(self):
         p = planet.PlanetBase('/nonexistent/planet.osm.pbf')
-        with pytest.raises(Exception):
+        with pytest.raises((OSError, RuntimeError, Exception)):  # noqa: B017
             p.get_timestamp()
