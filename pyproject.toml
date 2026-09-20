@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "interline-planetutils"
+version = "0.5.0"
+description = "Interline PlanetUtils"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [
+    { name = "Ian Rees", email = "ian@interline.io" },
+]
+maintainers = [
+    { name = "Interline Technologies", email = "info@interline.io" },
+]
+keywords = ["openstreetmap", "osm", "elevation", "terrain", "valhalla", "gis"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+# NOTE: `future` is retained here deliberately for Phase 0 so that behavior is
+# unchanged while characterization tests are written. It is removed in Phase 3,
+# together with the `install_aliases()` calls it backs.
+dependencies = [
+    "future",
+    "requests",
+]
+
+[project.optional-dependencies]
+s3 = ["boto3>=1.34"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-cov",
+    "responses",
+]
+
+[project.urls]
+Homepage = "https://github.com/interline-io/planetutils"
+Repository = "https://github.com/interline-io/planetutils"
+Issues = "https://github.com/interline-io/planetutils/issues"
+
+[project.scripts]
+osm_planet_update = "planetutils.osm_planet_update:main"
+osm_planet_extract = "planetutils.osm_planet_extract:main"
+osm_planet_get_timestamp = "planetutils.osm_planet_get_timestamp:main"
+osm_extract_download = "planetutils.osm_extract_download:main"
+elevation_tile_download = "planetutils.elevation_tile_download:main"
+elevation_tile_merge = "planetutils.elevation_tile_merge:main"
+valhalla_tilepack_download = "planetutils.tilepack_download:main"
+valhalla_tilepack_list = "planetutils.tilepack_list:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["planetutils"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "requires_binary(name): test shells out to an external binary; skipped when absent unless --require-binaries",
+    "network: test performs real network I/O; deselected by default",
+]
+addopts = "-m 'not network'"

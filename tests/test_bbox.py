@@ -6,7 +6,9 @@ import unittest
 import planetutils.bbox as bbox
 
 CA = [-126.38,32.15,-113.53,42.24]
-TESTGEOJSON = os.path.join('.','examples','test.geojson')
+from conftest import TEST_GEOJSON
+
+TESTGEOJSON = str(TEST_GEOJSON)
 
 
 class TestFeature(unittest.TestCase):
