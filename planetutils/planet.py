@@ -33,6 +33,12 @@ INSTALL_HINTS = {
         '  Debian/Ubuntu:  apt install osmctools\n'
         '  or use the container: ghcr.io/interline-io/planetutils'
     ),
+    'pyosmium-up-to-date': (
+        'pyosmium-up-to-date ships in the `osmium` wheel, which is a\n'
+        'dependency of this package, so it is normally installed alongside\n'
+        'it. If it is missing, reinstall planetutils in a clean environment,\n'
+        'or install it directly with: pip install "osmium>=4,<5"'
+    ),
     'osmosis': (
         'osmosis is required for --toolchain=osmosis, and it needs a JRE.\n'
         '  macOS:          brew install osmosis\n'
@@ -229,8 +235,10 @@ class PlanetDownloaderHttp(PlanetBase):
     def _download(self, url, outpath):
         # Uses the requests-based helper rather than shelling out to curl,
         # which is not installed in the container and is not available by
-        # default on Windows.
-        download.download_curl(url, outpath, compressed=True)
+        # default on Windows. The planet file is tens of gigabytes and the
+        # transfer is not resumable, so it gets the long read timeout.
+        download.download_curl(url, outpath, compressed=True,
+                               timeout=download.LARGE_FILE_TIMEOUT)
 
     def download_planet(self, url=None):
         if os.path.exists(self.osmpath):

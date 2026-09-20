@@ -16,9 +16,15 @@ import requests
 
 from . import log
 
-# Connect/read timeout. Terrain tiles are small, but the planet file is not,
-# so this is a per-read timeout rather than a deadline for the whole transfer.
+# Connect/read timeout, applied per read rather than to the whole transfer.
+# Suits small, numerous tile downloads.
 TIMEOUT = (10, 60)
+
+# Used for multi-hour, multi-gigabyte transfers such as the OSM planet. The
+# transfer is not resumable, so a stalled read discards everything already
+# fetched; a short read timeout that suits tiles is actively harmful here.
+# `curl -L -o` applied no read timeout at all.
+LARGE_FILE_TIMEOUT = (10, 900)
 
 CHUNK_SIZE = 1024 * 1024
 
@@ -32,7 +38,14 @@ def _get(url, compressed=False, timeout=TIMEOUT):
     """
     headers = {'Accept-Encoding': 'identity'} if compressed else {}
     r = requests.get(url, stream=True, timeout=timeout, headers=headers)
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except BaseException:
+        # With stream=True the pooled connection is only returned once the
+        # body is read to EOF or closed. An unread error body would hold the
+        # socket until GC, which exhausts the pool across a tile run.
+        r.close()
+        raise
     return r
 
 
@@ -76,7 +89,7 @@ def download_gzip(url, outpath):
         fileobj=resp.raw, mode='rb'))
 
 
-def download_curl(url, outpath, compressed=False):
+def download_curl(url, outpath, compressed=False, timeout=TIMEOUT):
     """Download `url` to `outpath`.
 
     Kept under its original name because it is part of the module's public
@@ -88,7 +101,7 @@ def download_curl(url, outpath, compressed=False):
     log.info("Downloading to %s" % outpath)
     # NOTE: the URL is deliberately not logged. It can carry an api_token in
     # its query string, which would otherwise end up in logs.
-    r = _get(url, compressed=compressed)
+    r = _get(url, compressed=compressed, timeout=timeout)
     r.raw.decode_content = True
     _write_atomically(r, outpath)
     log.info("Done")

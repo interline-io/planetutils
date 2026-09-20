@@ -112,6 +112,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          target: test
           push: false
           load: true
           tags: planetutils:ci

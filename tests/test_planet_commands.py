@@ -186,9 +186,11 @@ class TestDownloaderHttp:
         out = str(tmp_path / 'planet.osm.pbf')
         calls = self._record(monkeypatch)
         planet.PlanetDownloaderHttp(out).download_planet()
-        assert calls == [(
-            'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf',
-            out, {'compressed': True})]
+        assert len(calls) == 1
+        url, outpath, kw = calls[0]
+        assert url == 'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf'
+        assert outpath == out
+        assert kw['compressed'] is True
 
     def test_custom_mirror_url(self, monkeypatch, tmp_path):
         out = str(tmp_path / 'planet.osm.pbf')
@@ -196,6 +198,16 @@ class TestDownloaderHttp:
         planet.PlanetDownloaderHttp(out).download_planet(
             url='https://mirror.example.org/planet.osm.pbf')
         assert calls[0][0] == 'https://mirror.example.org/planet.osm.pbf'
+
+    def test_uses_the_long_read_timeout(self, monkeypatch, tmp_path):
+        """The planet is tens of GB and the transfer is not resumable, so the
+        short tile timeout would discard hours of work on a single stall."""
+        out = str(tmp_path / 'planet.osm.pbf')
+        calls = self._record(monkeypatch)
+        planet.PlanetDownloaderHttp(out).download_planet()
+        timeout = calls[0][2]['timeout']
+        assert timeout == planet.download.LARGE_FILE_TIMEOUT
+        assert timeout[1] > planet.download.TIMEOUT[1]
 
     def test_does_not_shell_out(self, monkeypatch, tmp_path):
         """Regression guard: no external binary on the planet download path."""

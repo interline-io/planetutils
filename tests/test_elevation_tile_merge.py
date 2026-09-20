@@ -175,3 +175,81 @@ class TestCli:
                       ['--scale', '0', str(tmp_path / 'o.tif'),
                        str(tile_block)])
         assert e.value.code == 1
+
+
+class TestGdalCompatibility:
+    """Behaviors that must match the gdal_merge.py / gdal_translate pipeline
+    this replaced. Each was a real divergence found in review."""
+
+    def test_nodata_tag_is_not_set(self, tile_block, tmp_path):
+        """`gdal_merge.py -init 0` fills gaps with zero but leaves the nodata
+        tag unset. Tagging 0 as nodata would mark every sea-level pixel as
+        missing for downstream consumers.
+
+        Note rasterio.merge sets out_profile["nodata"] from the fill value,
+        so dst_kwds cannot override this; it must be cleared after the merge.
+        """
+        out = tmp_path / 'out.tif'
+        elevation_tile_merge.merge_tiles(
+            elevation_tile_merge.find_tiles(str(tile_block)), str(out))
+        with rasterio.open(str(out)) as d:
+            assert d.nodata is None
+
+    def test_gaps_are_still_zero_filled(self, tmp_path):
+        d = tmp_path / 'in'
+        d.mkdir()
+        span = SIZE * PIXEL
+        write_tile(d / 'a.tif', 0, span * 2, 5.0)
+        write_tile(d / 'b.tif', span, span, 7.0)      # diagonal neighbour
+        out = tmp_path / 'out.tif'
+        elevation_tile_merge.merge_tiles(
+            elevation_tile_merge.find_tiles(str(d)), str(out))
+        with rasterio.open(str(out)) as ds:
+            assert ds.read(1)[0, SIZE] == 0.0
+            assert ds.nodata is None
+
+    def test_overlapping_tiles_last_one_wins(self, tmp_path):
+        """gdal_merge.py copied each input over the output in sequence, so
+        the last file covering a pixel won. rasterio defaults to "first"."""
+        d = tmp_path / 'in'
+        d.mkdir()
+        write_tile(d / 'a.tif', 0, SIZE * PIXEL, 5.0)
+        write_tile(d / 'b.tif', 0, SIZE * PIXEL, 7.0)   # fully overlapping
+        out = tmp_path / 'out.tif'
+        paths = elevation_tile_merge.find_tiles(str(d))
+        assert paths[0].endswith('a.tif')               # ordering is defined
+        elevation_tile_merge.merge_tiles(paths, str(out))
+        with rasterio.open(str(out)) as ds:
+            assert ds.read(1)[0, 0] == 7.0
+
+    def test_half_values_round_away_from_zero(self, tmp_path):
+        """numpy rounds halves to even (62.5 -> 62); gdal_translate rounds
+        halves away from zero (62.5 -> 63)."""
+        d = tmp_path / 'in'
+        d.mkdir()
+        # 62.5/255*40 scales back to exactly 62.5 over the 0-40 range.
+        write_tile(d / 'a.tif', 0, SIZE * PIXEL, 62.5 / 255 * 40)
+        out = tmp_path / 'out8.tif'
+        elevation_tile_merge.scale_tiles(
+            elevation_tile_merge.find_tiles(str(d)), str(out), '0', '40')
+        with rasterio.open(str(out)) as ds:
+            assert ds.read(1)[0, 0] == 63
+
+    def test_merges_more_tiles_than_the_fd_limit(self, tmp_path):
+        """Opening every tile up front exhausted the descriptor limit on any
+        realistic tile set; paths are handed to rasterio to open lazily."""
+        resource = pytest.importorskip('resource')
+        d = tmp_path / 'in'
+        d.mkdir()
+        for i in range(400):
+            write_tile(d / ('t%03d.tif' % i), i * SIZE * PIXEL, SIZE * PIXEL,
+                       float(i))
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (256, hard))
+        try:
+            elevation_tile_merge.merge_tiles(
+                elevation_tile_merge.find_tiles(str(d)),
+                str(tmp_path / 'big.tif'))
+        finally:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+        assert (tmp_path / 'big.tif').exists()

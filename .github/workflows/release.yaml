@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -54,6 +53,7 @@ jobs:
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          target: runtime
           push: true
           # The image was amd64-only, so Apple Silicon users ran it emulated.
           platforms: linux/amd64,linux/arm64

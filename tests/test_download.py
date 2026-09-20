@@ -142,3 +142,32 @@ class TestDownloadCurl:
         with caplog.at_level('DEBUG'):
             download.download_curl(secret, str(tmp_path / 'o'))
         assert 'SECRET' not in caplog.text
+
+
+class TestConnectionHandling:
+    @responses.activate
+    def test_error_response_is_closed(self, tmp_path):
+        """With stream=True the pooled connection is only released once the
+        body is read or closed; an unread error body leaks it."""
+        responses.add(responses.GET, URL, body=b'<Error/>', status=403)
+        closed = []
+        real_get = download.requests.get
+
+        def spy(url, **kw):
+            r = real_get(url, **kw)
+            original_close = r.close
+
+            def tracking_close():
+                closed.append(True)
+                original_close()
+
+            r.close = tracking_close
+            return r
+
+        download.requests.get = spy
+        try:
+            with pytest.raises(requests.HTTPError):
+                download.download(URL, str(tmp_path / 'o'))
+        finally:
+            download.requests.get = real_get
+        assert closed, 'error response was not closed'

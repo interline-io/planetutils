@@ -12,12 +12,22 @@ import argparse
 import fnmatch
 import os
 import sys
+import tempfile
 
 import numpy as np
 import rasterio
 from rasterio.merge import merge as rasterio_merge
 
 from . import log
+
+# Bound on the working buffer rasterio uses while merging, in MB. Output is
+# written to disk incrementally, so a large tile set need not fit in RAM.
+MEM_LIMIT_MB = 256
+
+# gdal_merge.py copied each input over the output in sequence, so the last
+# file to cover a pixel won. rasterio defaults to "first"; match the old
+# behavior for anyone whose inputs overlap.
+MERGE_METHOD = 'last'
 
 
 def find_tiles(inpath):
@@ -28,36 +38,45 @@ def find_tiles(inpath):
     return sorted(matches)
 
 
-# Bound on the working buffer rasterio uses while merging, in MB. The merge
-# is written to disk incrementally rather than held in memory, so a
-# planet-scale tile set does not have to fit in RAM.
-MEM_LIMIT_MB = 256
+def _output_profile(paths):
+    """Profile for the merged output, taken from the first input tile."""
+    with rasterio.open(paths[0]) as src:
+        profile = src.profile.copy()
+    profile.update(driver='GTiff')
+    return profile
+
+
+def _merge_to(paths, outpath):
+    """Merge `paths` into `outpath`, streaming to disk.
+
+    The source paths are handed to rasterio directly rather than pre-opened:
+    opening every tile up front exhausts the file-descriptor limit on any
+    realistically sized tile set.
+    """
+    profile = _output_profile(paths)
+    rasterio_merge(
+        paths,
+        nodata=0,
+        method=MERGE_METHOD,
+        dst_path=outpath,
+        dst_kwds=profile,
+        mem_limit=MEM_LIMIT_MB,
+    )
+    # rasterio.merge sets out_profile["nodata"] from the fill value, so the
+    # tag has to be cleared afterwards; dst_kwds cannot override it. We want
+    # the zero fill of `gdal_merge.py -init 0` without declaring 0 to be
+    # no-data, which would mask every sea-level pixel downstream.
+    with rasterio.open(outpath, 'r+') as dst:
+        dst.nodata = None
 
 
 def merge_tiles(paths, outpath):
     """Merge `paths` into `outpath`.
 
     nodata=0 reproduces `gdal_merge.py -init 0`: gaps between tiles are
-    initialized to zero rather than left undefined.
-
-    Writes via dst_path so the merged raster is streamed to disk in windows,
-    matching the incremental behavior of the gdal_merge.py implementation
-    this replaced.
+    filled with zero rather than left undefined.
     """
-    sources = [rasterio.open(p) for p in paths]
-    try:
-        profile = sources[0].profile.copy()
-        profile.update(driver='GTiff')
-        rasterio_merge(
-            sources,
-            nodata=0,
-            dst_path=outpath,
-            dst_kwds=profile,
-            mem_limit=MEM_LIMIT_MB,
-        )
-    finally:
-        for s in sources:
-            s.close()
+    _merge_to(paths, outpath)
 
 
 def scale_tiles(paths, outpath, smin, smax):
@@ -65,35 +84,37 @@ def scale_tiles(paths, outpath, smin, smax):
 
     Reproduces `gdal_translate -of GTiff -ot Byte -scale <min> <max> 0 255`:
     values are clipped to [smin, smax] and mapped onto 0-255.
-    """
-    sources = [rasterio.open(p) for p in paths]
-    try:
-        array, transform = rasterio_merge(sources, nodata=0)
-        profile = sources[0].profile.copy()
-    finally:
-        for s in sources:
-            s.close()
 
+    Merges to a temporary file and rescales window by window, so neither the
+    merged raster nor its rescaled copy has to fit in memory. This mirrors
+    the old two-step pipeline, which streamed through a temp .tif.
+    """
     span = float(smax) - float(smin)
     if span == 0:
         raise ValueError('--scale min and max must differ')
-    scaled = (array.astype('float64') - float(smin)) / span * 255.0
-    # Round before casting. A bare astype() truncates, so a value landing on
-    # 63.75 would become 63 where gdal_translate's float-to-Byte conversion
-    # produces 64.
-    scaled = np.clip(np.round(scaled), 0, 255).astype('uint8')
 
-    profile.update(
-        driver='GTiff',
-        dtype='uint8',
-        height=scaled.shape[1],
-        width=scaled.shape[2],
-        count=scaled.shape[0],
-        transform=transform,
-        nodata=None,
-    )
-    with rasterio.open(outpath, 'w', **profile) as dst:
-        dst.write(scaled)
+    fd, tmppath = tempfile.mkstemp(suffix='.tif')
+    os.close(fd)
+    try:
+        _merge_to(paths, tmppath)
+        with rasterio.open(tmppath) as src:
+            profile = src.profile.copy()
+            profile.update(driver='GTiff', dtype='uint8', nodata=None)
+            with rasterio.open(outpath, 'w', **profile) as dst:
+                for _ji, window in src.block_windows(1):
+                    block = src.read(window=window).astype('float64')
+                    scaled = (block - float(smin)) / span * 255.0
+                    scaled = np.clip(scaled, 0, 255)
+                    # floor(x + 0.5), not np.round: numpy rounds halves to
+                    # even (62.5 -> 62), while gdal_translate's float-to-Byte
+                    # conversion rounds halves away from zero (62.5 -> 63).
+                    scaled = np.floor(scaled + 0.5).astype('uint8')
+                    dst.write(scaled, window=window)
+    finally:
+        try:
+            os.unlink(tmppath)
+        except OSError:
+            pass
 
 
 def main():

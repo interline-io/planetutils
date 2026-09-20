@@ -31,7 +31,6 @@ class TestPlanetBase(unittest.TestCase):
         output = p.osmconvert(p.osmpath, '--out-statistics')
         self.assertIn('timestamp min:', output)
 
-    @needs('osmconvert')
     def test_get_timestamp(self):
         p = planet.PlanetBase(TESTFILE)
         self.assertEqual(p.get_timestamp(), TESTFILE_TIMESTAMP)

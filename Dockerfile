@@ -1,4 +1,10 @@
-FROM ubuntu:24.04
+# syntax=docker/dockerfile:1
+
+# uv is pinned by digest: an unpinned :latest would make the same git tag
+# produce different images on different days.
+FROM ghcr.io/astral-sh/uv:0.12.17@sha256:10787c682e4184e4f290de1171fd4703dc63de99221f10fe1c99002ce7fa9acc AS uv
+
+FROM ubuntu:24.04 AS base
 LABEL maintainer="Ian Rees <ian@interline.io>,Drew Dara-Abrams <drew@interline.io>"
 LABEL org.opencontainers.image.source=https://github.com/interline-io/planetutils
 
@@ -19,24 +25,30 @@ RUN apt-get update -y \
         python3 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=uv /uv /usr/local/bin/uv
 
 WORKDIR /app
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Dependencies first, so a source change does not invalidate the layer.
 COPY pyproject.toml uv.lock README.md LICENSE.txt ./
-RUN uv sync --frozen --no-install-project
 
+# --- test stage: dev dependencies and the suite, for CI to target ---
+FROM base AS test
+RUN uv sync --frozen --extra s3 --no-install-project
 COPY planetutils ./planetutils
 COPY tests ./tests
 COPY examples ./examples
-# Dev dependencies are included so the image can run its own test suite.
-# CI does exactly that with --require-binaries: the container is the one
-# environment guaranteed to have osmosis, osmconvert and osmium, so nothing
-# is allowed to skip there.
-RUN uv sync --frozen
+RUN uv sync --frozen --extra s3
 
-ENV PATH="/app/.venv/bin:$PATH"
+# --- runtime stage: what gets published ---
+FROM base AS runtime
+# --extra s3 installs boto3, which osm_planet_update --s3 needs. --no-dev
+# keeps pytest and ruff out of the published image.
+RUN uv sync --frozen --no-dev --extra s3 --no-install-project
+COPY planetutils ./planetutils
+COPY examples ./examples
+RUN uv sync --frozen --no-dev --extra s3
 
 COPY planetutils.sh /scripts/planetutils.sh
 
