@@ -20,11 +20,16 @@ def clamp_workers(workers):
     """Coerce `workers` into a usable range, warning when it is adjusted."""
     if workers is None:
         return DEFAULT_WORKERS
+    # bool is an int subclass, so True would silently become 1 worker.
+    if isinstance(workers, bool):
+        raise ValueError('workers must be an integer, got %r' % (workers,))
     try:
         n = int(workers)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         raise ValueError(
             'workers must be an integer, got %r' % (workers,)) from None
+    if n != workers:
+        raise ValueError('workers must be a whole number, got %r' % (workers,))
     if n < 1:
         log.warning('workers=%s is below 1; using 1' % n)
         return 1
@@ -36,10 +41,11 @@ def clamp_workers(workers):
 
 
 def makedirs(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
+    # exist_ok rather than swallowing OSError: with many threads creating the
+    # same parent concurrently the race is benign, but a genuine ENOSPC,
+    # EACCES or EROFS must propagate instead of surfacing later as a
+    # confusing FileNotFoundError on the .part file.
+    os.makedirs(path, exist_ok=True)
 
 class ElevationDownloader:
     """Downloads elevation tiles from AWS Open Data Registry's Terrain Tiles dataset.
@@ -92,6 +98,10 @@ class ElevationDownloader:
         try:
             self._download_all(sorted(pending), bucket, prefix, session)
         finally:
+            # _download_all only returns once the pool has shut down, so no
+            # worker is still using the session here. Closing it while
+            # threads were live would give them ClosedPoolError and let them
+            # keep writing tiles after the caller saw the failure.
             session.close()
 
     def _download_all(self, pending, bucket, prefix, session):
@@ -101,12 +111,18 @@ class ElevationDownloader:
         tile up front would pin a Future per tile for the whole run, which at
         planet scale is many gigabytes allocated before the first byte.
 
-        A failure propagates, matching the serial loop this replaces; the
-        remaining work is cancelled rather than left to drain, so Ctrl-C and
-        errors both stop promptly.
+        A failure propagates, matching the serial loop this replaces, and
+        queued work is cancelled rather than left to drain.
+
+        Note that tiles already running cannot be cancelled: they are
+        non-daemon pool threads that the interpreter joins at exit, so a
+        Ctrl-C still waits for up to `workers` in-flight requests to finish
+        or time out. The bounded window keeps that to a small, fixed cost
+        instead of the whole queue.
         """
         queue = iter(pending)
         in_flight = set()
+        order = {}
         window = self.workers * 2
         pool = ThreadPoolExecutor(max_workers=self.workers)
         try:
@@ -116,14 +132,26 @@ class ElevationDownloader:
                         z, x, y = next(queue)
                     except StopIteration:
                         break
-                    in_flight.add(pool.submit(
+                    future = pool.submit(
                         self.download_tile, bucket, prefix, z, x, y,
-                        session=session))
+                        session=session)
+                    order[future] = (z, x, y)
+                    in_flight.add(future)
                 if not in_flight:
                     break
                 done, in_flight = wait(in_flight, return_when=FIRST_COMPLETED)
-                for future in done:
-                    future.result()      # re-raises the first failure
+                # `done` is a set, so iterate the tiles in a defined order
+                # and report the lowest-numbered failure rather than an
+                # arbitrary one. Sibling errors are logged so a disk-full is
+                # not hidden behind an incidental 403.
+                failures = [(order[f], f.exception()) for f in done
+                            if f.exception() is not None]
+                if failures:
+                    failures.sort()
+                    for tile, exc in failures[1:]:
+                        log.error('also failed %s/%s/%s: %s'
+                                  % (tile + (exc or type(exc).__name__,)))
+                    raise failures[0][1]
         except BaseException:
             # A plain `with ThreadPoolExecutor` exits via shutdown(wait=True)
             # with no cancellation, so the queue would drain first and Ctrl-C

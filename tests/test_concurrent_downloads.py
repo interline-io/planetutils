@@ -17,6 +17,7 @@ import re
 import threading
 
 import pytest
+import requests
 import responses
 
 from planetutils import download
@@ -63,11 +64,33 @@ class TestRetryPolicy:
         assert download.make_session(32).get_adapter(
             'https://x/')._pool_maxsize == 32
 
-    def test_default_session_also_retries(self):
-        """Callers that pass no session must still get retries, rather than
-        falling back to a bare requests.get."""
-        s = download.get_default_session()
-        assert s.get_adapter('https://x/').max_retries is download.RETRY
+    @responses.activate
+    def test_a_retryable_status_is_actually_retried(self):
+        """End-to-end, not attribute inspection: `responses` does emulate the
+        Retry policy, so this pins it. Emptying status_forcelist or setting
+        total=0 must fail here."""
+        responses.add(responses.GET, 'https://x.test/t', status=503)
+        session = download.make_session()
+        with pytest.raises(requests.RequestException):
+            download.download('https://x.test/t', '/dev/null', session=session)
+        assert len(responses.calls) == download.RETRY.total + 1
+
+    @responses.activate
+    def test_a_non_retryable_status_is_not_retried(self):
+        responses.add(responses.GET, 'https://x.test/t', status=404)
+        session = download.make_session()
+        with pytest.raises(requests.RequestException):
+            download.download('https://x.test/t', '/dev/null', session=session)
+        assert len(responses.calls) == 1
+
+    def test_other_commands_keep_their_previous_behavior(self):
+        """The planet, extract and tilepack downloads are not part of this
+        feature. Routing them through the retrying session would change how
+        they fail, and urllib3 logs the full URL on each retry -- which for
+        those callers carries an api_token in the query string."""
+        import inspect
+        src = inspect.getsource(download._get)
+        assert 'session.get if session is not None else requests.get' in src
 
 
 class TestSessionReachesTheTransport:

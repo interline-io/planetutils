@@ -421,7 +421,7 @@ requires-dist = [
     { name = "osmium", specifier = ">=4,<5" },
     { name = "rasterio", specifier = ">=1.4" },
     { name = "requests", specifier = ">=2.31" },
-    { name = "urllib3", specifier = ">=2.7" },
+    { name = "urllib3", specifier = ">=2.6.3" },
 ]
 provides-extras = ["s3"]
 

@@ -63,13 +63,11 @@ class TestDownload:
             def raise_for_status(self):
                 pass
 
-        class FakeSession:
-            def get(self, url, **kw):
-                captured.update(kw)
-                return FakeResponse()
+        def spy(url, **kw):
+            captured.update(kw)
+            return FakeResponse()
 
-        monkeypatch.setattr(download, 'get_default_session',
-                            lambda: FakeSession())
+        monkeypatch.setattr(download.requests, 'get', spy)
         download.download(URL, str(tmp_path / 'o'))
         assert captured.get('timeout') is not None
 
@@ -153,22 +151,20 @@ class TestConnectionHandling:
         body is read or closed; an unread error body leaks it."""
         responses.add(responses.GET, URL, body=b'<Error/>', status=403)
         closed = []
-        real_session = download.get_default_session()
+        real_get = download.requests.get
 
-        class TrackingSession:
-            def get(self, url, **kw):
-                r = real_session.get(url, **kw)
-                original_close = r.close
+        def spy(url, **kw):
+            r = real_get(url, **kw)
+            original_close = r.close
 
-                def tracking_close():
-                    closed.append(True)
-                    original_close()
+            def tracking_close():
+                closed.append(True)
+                original_close()
 
-                r.close = tracking_close
-                return r
+            r.close = tracking_close
+            return r
 
-        monkeypatch.setattr(download, 'get_default_session',
-                            lambda: TrackingSession())
+        monkeypatch.setattr(download.requests, 'get', spy)
         with pytest.raises(requests.HTTPError):
             download.download(URL, str(tmp_path / 'o'))
         assert closed, 'error response was not closed'

@@ -11,7 +11,6 @@ macOS, Linux and Windows, and they fail loudly.
 import gzip
 import os
 import shutil
-import threading
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -50,15 +49,18 @@ RETRY = Retry(
 
 DEFAULT_POOL_SIZE = 16
 
-_default_session = None
-_default_session_lock = threading.Lock()
-
 
 def make_session(pool_size=DEFAULT_POOL_SIZE):
     """A requests Session with connection pooling and retries.
 
     Reusing one Session keeps TLS connections alive across a run, which
     matters more than bandwidth here: tile downloads are latency-bound.
+
+    Deliberately opt-in. Routing every caller through this would change the
+    behavior of the planet, extract and tilepack downloads, which this
+    feature is not about -- and urllib3 logs the full URL on each retry, so
+    the api_token those callers put in their query string would reach the
+    logs.
     """
     session = requests.Session()
     # pool_connections is the count of cached per-host pools; every tile
@@ -69,19 +71,6 @@ def make_session(pool_size=DEFAULT_POOL_SIZE):
     return session
 
 
-def get_default_session():
-    """A lazily created, process-wide retrying session.
-
-    Used whenever a caller passes none, so every download gets retries and
-    pooling rather than falling back to a bare requests.get.
-    """
-    global _default_session
-    with _default_session_lock:
-        if _default_session is None:
-            _default_session = make_session()
-        return _default_session
-
-
 def _get(url, compressed=False, timeout=TIMEOUT, session=None):
     """Start a streaming GET, raising on any error status.
 
@@ -90,9 +79,8 @@ def _get(url, compressed=False, timeout=TIMEOUT, session=None):
     transfer compression (curl's --compressed).
     """
     headers = {'Accept-Encoding': 'identity'} if compressed else {}
-    if session is None:
-        session = get_default_session()
-    r = session.get(url, stream=True, timeout=timeout, headers=headers)
+    get = session.get if session is not None else requests.get
+    r = get(url, stream=True, timeout=timeout, headers=headers)
     try:
         r.raise_for_status()
     except BaseException:
@@ -118,6 +106,14 @@ def _write_atomically(response, outpath, transform=None):
             shutil.copyfileobj(body, f, CHUNK_SIZE)
         os.replace(partpath, outpath)
     except BaseException:
+        # Close the response for the same reason _get does on an error
+        # status: with stream=True the pooled connection is only released
+        # once the body is read or closed, so a mid-body failure would hold
+        # the socket until GC.
+        try:
+            response.close()
+        except Exception:
+            pass
         try:
             os.unlink(partpath)
         except OSError:
