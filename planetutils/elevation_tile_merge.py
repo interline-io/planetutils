@@ -22,8 +22,11 @@ def main():
         print("Must provide min, max values")
         sys.exit(1)
     elif args.scale:
-        # Output to tmp file
-        _, tmppath = tempfile.mkstemp(suffix='.tif')
+        # Output to tmp file. The descriptor must be closed: leaking it
+        # leaks an fd on POSIX and, on Windows, keeps the file locked so
+        # GDAL cannot write to it.
+        fd, tmppath = tempfile.mkstemp(suffix='.tif')
+        os.close(fd)
 
     matches = []
     for root, dirnames, filenames in os.walk(args.inpath):
@@ -51,10 +54,11 @@ def main():
         cmd = ['gdal_translate', '-of', 'GTiff', '-ot', 'Byte', '-scale', a[0], a[1], '0', '255', tmppath, outpath]
         subprocess.check_call(cmd)
         # cleanup
-        try: os.unlink('%s.aux.xml'%outpath)
-        except: pass
-        try: os.unlink(tmppath)
-        except: pass
+        for path in ('%s.aux.xml'%outpath, tmppath):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
 if __name__ == '__main__':
     main()

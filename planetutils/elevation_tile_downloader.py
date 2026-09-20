@@ -44,16 +44,18 @@ class ElevationDownloader(object):
     def download_bbox(self, bbox, bucket='elevation-tiles-prod', prefix='geotiff'):
         tiles = self.get_bbox_tiles(bbox)
         found = set()
-        download = set()
+        # NB: named `pending`, not `download` -- the latter shadows the
+        # imported download module within this function.
+        pending = set()
         for z,x,y in tiles:
             od = self.tile_path(z, x, y)
             op = os.path.join(self.outpath, *od)
             if self.tile_exists(op):
-                found.add((x,y))
+                found.add((z,x,y))
             else:
-                download.add((x,y))
-        log.info("found %s tiles; %s to download"%(len(found), len(download)))
-        for x,y in sorted(download):
+                pending.add((z,x,y))
+        log.info("found %s tiles; %s to download"%(len(found), len(pending)))
+        for z,x,y in sorted(pending):
             self.download_tile(bucket, prefix, z, x, y)
 
     def tile_exists(self, op):
@@ -123,7 +125,6 @@ class ElevationSkadiDownloader(ElevationDownloader):
         max_x = int(math.ceil(right))
         min_y = int(math.floor(bottom))
         max_y = int(math.ceil(top))
-        expect = (max_x - min_x + 1) * (max_y - min_y + 1)
         tiles = set()
         for x in range(min_x, max_x):
             for y in range(min_y, max_y):

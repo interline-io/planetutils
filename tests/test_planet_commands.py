@@ -207,11 +207,12 @@ class TestExtractCommands:
 
 
 class TestOsmiumCommandsTempfileBug:
-    """--commands with the osmium toolchain emits an unrunnable command.
+    """--commands with the osmium toolchain emits a runnable command.
 
-    planet.py writes the extract config to a tempfile, emits a command line
-    referencing it, then unlinks it -- so the printed command can never be
-    run by hand, which is the entire point of --commands.
+    planet.py writes the extract config to a tempfile. When the command is
+    actually run the config is cleaned up afterwards; when it is only being
+    printed it must survive, or the printed command could never be run by
+    hand -- which is the entire point of --commands.
     """
 
     def test_current_behavior_config_is_gone_after_the_call(self, tmp_path):
@@ -221,10 +222,7 @@ class TestOsmiumCommandsTempfileBug:
         config_path = calls[0][5]
         assert not os.path.exists(config_path)
 
-    @pytest.mark.xfail(strict=True,
-                       reason='config tempfile is unlinked before the emitted '
-                              'command could ever be run')
-    def test_emitted_command_should_be_runnable(self, tmp_path):
+    def test_emitted_command_is_runnable(self, tmp_path):
         p = planet.PlanetExtractorOsmium(OSMPATH)
         cmds = p.extract_commands({'test': rect_feature()},
                                   outpath=str(tmp_path))
@@ -236,10 +234,9 @@ class TestOsmiumCommandsTempfileBug:
 class TestUpdaterOsmosis:
     """The osmosis update path is retained, so it gets pinned too.
 
-    _initialize_state currently raises TypeError on Python 3 (it writes the
-    bytes from urlopen() into a text-mode file), so it has not worked since
-    the Py3 migration. That is fixed in a later commit; the xfail below
-    flips when it is.
+    _initialize_state used to write the bytes from urlopen() into a
+    text-mode file, raising TypeError, so this path had not worked since the
+    Python 3 migration. Now fixed and covered.
     """
 
     def _updater(self, tmp_path):
@@ -301,9 +298,6 @@ class TestUpdaterOsmosis:
         with pytest.raises(Exception, match='planet file does not exist'):
             p.update_planet('/out/new.osm.pbf')
 
-    @pytest.mark.xfail(strict=True,
-                       reason='writes bytes from urlopen() into a text-mode '
-                              'file; broken since the Python 3 migration')
     def test_initialize_state_writes_sequence_file(self, tmp_path,
                                                    monkeypatch):
         p = self._updater(tmp_path)
@@ -316,3 +310,21 @@ class TestUpdaterOsmosis:
         p._initialize_state()
         statepath = os.path.join(p.osmosis_workdir, 'state.txt')
         assert 'sequenceNumber=123' in open(statepath).read()
+
+
+class TestWorkdirOverride:
+    def test_defaults_alongside_the_planet_file(self, tmp_path):
+        osmpath = tmp_path / 'planet.osm.pbf'
+        p = planet.PlanetUpdaterOsmosis(str(osmpath))
+        assert p.osmosis_workdir == str(tmp_path / 'planet.osm.pbf.workdir')
+
+    def test_explicit_workdir_is_honored(self, tmp_path):
+        osmpath = tmp_path / 'planet.osm.pbf'
+        p = planet.PlanetUpdaterOsmosis(str(osmpath),
+                                        osmosis_workdir='/custom/wd')
+        assert p.osmosis_workdir == '/custom/wd'
+
+    def test_none_workdir_falls_back_to_default(self, tmp_path):
+        osmpath = tmp_path / 'planet.osm.pbf'
+        p = planet.PlanetUpdaterOsmosis(str(osmpath), osmosis_workdir=None)
+        assert p.osmosis_workdir == str(tmp_path / 'planet.osm.pbf.workdir')

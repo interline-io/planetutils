@@ -10,7 +10,7 @@ def flatcoords(coords, fc=None):
         coords[0][0] # check if iterable of iterables
         for c in coords:
             flatcoords(c, fc)
-    except:
+    except (TypeError, IndexError):
         fc.append(coords)
     return fc
 
@@ -73,7 +73,7 @@ def load_features_csv(csvpath):
     if not os.path.exists(csvpath):
         raise Exception('file does not exist: %s'%csvpath)
     bboxes = {}
-    with open(csvpath) as f:
+    with open(csvpath, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
         for row in reader:
             if len(row) != 5:
@@ -86,7 +86,7 @@ def load_features_csv(csvpath):
 def load_features_geojson(path):
     if not os.path.exists(path):
         raise Exception('file does not exist: %s'%path)
-    with open(path) as f:
+    with open(path, encoding='utf-8') as f:
         data = json.load(f)
     # check if this is a single feature
     if data.get('type') == 'FeatureCollection':

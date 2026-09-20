@@ -17,6 +17,10 @@ except ImportError:
     boto3 = None
 
 class PlanetBase(object):
+    # Set by extract_commands(): when commands are only being printed, any
+    # config file they reference has to outlive the call.
+    keep_config = False
+
     def __init__(self, osmpath=None, grain='hour', changeset_url=None, osmosis_workdir=None):
         self.osmpath = osmpath
         d, p = os.path.split(osmpath)
@@ -70,7 +74,12 @@ class PlanetExtractor(PlanetBase):
     def extract_commands(self, bboxes, outpath='.', **kw):
         args = []
         self.command = lambda x:args.append(x)
-        self.extract_bboxes(bboxes, outpath=outpath, **kw)
+        self.keep_config = True
+        try:
+            self.extract_bboxes(bboxes, outpath=outpath, **kw)
+        finally:
+            del self.command
+            self.keep_config = False
         return args
 
 class PlanetExtractorOsmosis(PlanetExtractor):
@@ -124,12 +133,19 @@ class PlanetExtractorOsmium(PlanetExtractor):
                 ext[ftype] = bbox.geometry.get('coordinates', [])
             extracts.append(ext)
         config = {'directory': outpath, 'extracts': extracts}
-        path = None
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False,
+                                         suffix='.json',
+                                         encoding='utf-8') as f:
             json.dump(config, f)
             path = f.name
-        self.command(['osmium', 'extract', '-s', strategy, '-c', path, self.osmpath])
-        os.unlink(path)
+        try:
+            self.command(['osmium', 'extract', '-s', strategy, '-c', path, self.osmpath])
+        finally:
+            # Under --commands the command is printed rather than run, so the
+            # config must survive for the user to run it by hand. Otherwise
+            # clean up, including when osmium fails.
+            if not self.keep_config:
+                os.unlink(path)
 
 class PlanetDownloader(PlanetBase):
     def download_planet(self):
@@ -190,9 +206,6 @@ class PlanetUpdater(PlanetBase):
     def update_planet(self, outpath, grain='hour', changeset_url=None, **kw):
         raise NotImplementedError
 
-class PlanetUpdaterOsmupdate(PlanetBase):
-    pass
-
 class PlanetUpdaterOsmium(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, size='1024', **kw):
         changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain        
@@ -224,7 +237,7 @@ class PlanetUpdaterOsmosis(PlanetBase):
             '--read-replication-interval-init',
             'workingDirectory=%s'%self.osmosis_workdir
         )
-        with open(configpath, 'w') as f:
+        with open(configpath, 'w', encoding='utf-8') as f:
             f.write('''
                 baseUrl=%s
                 maxInterval=0
@@ -236,8 +249,8 @@ class PlanetUpdaterOsmosis(PlanetBase):
             return
         timestamp = self.get_timestamp()
         url = 'https://replicate-sequences.osm.mazdermind.de/?%s'%timestamp
-        state = urlopen(url).read()
-        with open(statepath, 'w') as f:
+        state = urlopen(url).read().decode('utf-8')
+        with open(statepath, 'w', encoding='utf-8') as f:
             f.write(state)
 
     def _get_changeset(self):

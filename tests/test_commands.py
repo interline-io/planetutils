@@ -43,3 +43,17 @@ def test_entry_point_help_exits_zero(name, target, monkeypatch, capsys):
         getattr(module, func_name)()
     assert e.value.code == 0
     assert capsys.readouterr().out.startswith('usage:')
+
+
+def test_osm_planet_update_defaults_to_osmium(capsys):
+    """osmium needs no system binaries; osmosis needs Java. The container
+    script planetutils.sh already defaults to osmium."""
+    import sys
+    import pytest as _pytest
+    from planetutils import osm_planet_update
+    import unittest.mock as mock
+    with mock.patch.object(sys, 'argv', ['osm_planet_update', '--help']):
+        with _pytest.raises(SystemExit):
+            osm_planet_update.main()
+    out = capsys.readouterr().out
+    assert 'osmium (default' in out
