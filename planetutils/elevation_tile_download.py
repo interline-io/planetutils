@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import sys
 
 from . import log
 from .bbox import load_feature_string, load_features_csv, load_features_poly
@@ -25,7 +24,8 @@ def main():
                              'Valhalla reads either.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
-    parser.add_argument('--format', help='Download format', default='geotiff')
+    parser.add_argument('--format', help='Download format',
+                        choices=('geotiff', 'skadi'), default='geotiff')
     parser.add_argument('--zoom', help='Zoom level', default=0, type=int)
     parser.add_argument('--region', help='AWS region for downloads (us-east-1, eu-central-1)', default='us-east-1')
 
@@ -36,7 +36,7 @@ def main():
 
     if args.keep_compressed and args.format != 'skadi':
         parser.error('--keep-compressed applies to --format=skadi; '
-                     'GeoTIFF tiles are not served gzipped')
+                     '%s tiles are not served gzipped' % args.format)
 
     if args.format == 'geotiff':
         p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom,
@@ -45,9 +45,6 @@ def main():
         p = ElevationSkadiDownloader(args.outpath, region=args.region,
                                      workers=args.workers,
                                      keep_compressed=args.keep_compressed)
-    else:
-        print("Unknown format: %s"%args.format)
-        sys.exit(1)
 
     if args.csv:
         p.download_bboxes(load_features_csv(args.csv))

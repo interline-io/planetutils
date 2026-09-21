@@ -71,7 +71,9 @@ class TestWrites:
         written = list(tmp_path.rglob('*.hgt.gz'))
         assert written, 'no .hgt.gz written'
         assert written[0].read_bytes() == body
-        assert not list(tmp_path.rglob('*.hgt')) == written
+        # `not x == y` parses as `not (x == y)`, which is true whenever the
+        # two lists differ -- including when both forms were written.
+        assert list(tmp_path.rglob('*.hgt')) == [], 'also wrote an inflated tile'
 
     @responses.activate
     def test_compressed_output_inflates_to_the_same_bytes(self, tmp_path):
@@ -91,7 +93,7 @@ class TestWrites:
         written = list(tmp_path.rglob('*.hgt'))
         assert written
         assert written[0].read_bytes() == PAYLOAD
-        assert not list(tmp_path.rglob('*.hgt.gz'))
+        assert list(tmp_path.rglob('*.hgt.gz')) == [], 'also wrote a .gz'
 
     @responses.activate
     def test_requests_the_payload_verbatim(self, tmp_path):
@@ -187,4 +189,25 @@ class TestCli:
         with pytest.raises(SystemExit) as e:
             elevation_tile_download.main()
         assert e.value.code == 2
-        assert 'skadi' in capsys.readouterr().err
+        err = capsys.readouterr().err
+        assert 'skadi' in err
+        assert 'geotiff' in err, 'should name the format actually given'
+
+    def test_unknown_format_is_rejected_by_argparse(self, tmp_path,
+                                                    monkeypatch, capsys):
+        """An unknown format must not produce the --keep-compressed error,
+        which would name a format the user did not pass."""
+        import sys
+
+        from planetutils import elevation_tile_download
+        monkeypatch.setattr(sys, 'argv', [
+            'elevation_tile_download', '--format=bogus', '--keep-compressed',
+            '--bbox=-122.6,37.6,-122.4,37.8', '--outpath=%s' % tmp_path])
+        with pytest.raises(SystemExit) as e:
+            elevation_tile_download.main()
+        assert e.value.code == 2
+        # argparse's usage banner lists every flag, so check the error line
+        # itself: it must be about --format, not --keep-compressed.
+        error_line = capsys.readouterr().err.strip().splitlines()[-1]
+        assert 'invalid choice' in error_line
+        assert 'keep-compressed' not in error_line
