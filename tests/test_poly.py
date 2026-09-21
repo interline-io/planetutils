@@ -51,6 +51,29 @@ END
 """
 
 
+TWO_AREAS_WITH_HOLE = """two_areas
+mainland
+   0 0
+   10 0
+   10 10
+   0 10
+END
+island
+   100 0
+   110 0
+   110 10
+   100 10
+END
+!enclave
+   102 2
+   104 2
+   104 4
+   102 4
+END
+END
+"""
+
+
 def write(tmp_path, text, name='x.poly'):
     p = tmp_path / name
     p.write_text(text)
@@ -114,6 +137,25 @@ class TestParsing:
         feat = load_features_poly(write(tmp_path, text))['australia_v']
         assert len(feat.geometry['coordinates']) == 2
 
+    def test_hole_attaches_to_the_preceding_outer_ring(self, tmp_path):
+        """A `!` section cuts the ring it follows. Attaching every hole to
+        the first polygon produces an interior ring lying outside its own
+        exterior ring, which is an invalid multipolygon."""
+        feat = load_features_poly(
+            write(tmp_path, TWO_AREAS_WITH_HOLE))['two_areas']
+        mainland, island = feat.geometry['coordinates']
+        assert len(mainland) == 1, 'hole was attached to the wrong polygon'
+        assert len(island) == 2, 'island lost its hole'
+        hole_lons = [p[0] for p in island[1]]
+        outer_lons = [p[0] for p in island[0]]
+        assert min(outer_lons) <= min(hole_lons)
+        assert max(hole_lons) <= max(outer_lons)
+
+    def test_hole_before_any_polygon_is_rejected(self, tmp_path):
+        text = "x\n!hole\n 0 0\n 1 0\n 1 1\nEND\nEND\n"
+        with pytest.raises(Exception, match='precedes any polygon'):
+            load_features_poly(write(tmp_path, text))
+
     def test_is_rectangle_false_for_a_real_polygon(self, tmp_path):
         """Drives which branch osm_planet_extract takes for osmium."""
         tri = "t\narea\n 0 0\n 1 0\n 0.5 1\nEND\nEND\n"
@@ -140,7 +182,14 @@ class TestErrors:
 
     def test_too_few_points(self, tmp_path):
         text = "x\narea\n 0 0\n 1 0\nEND\nEND\n"
-        with pytest.raises(Exception, match='at least 3 points'):
+        with pytest.raises(Exception, match='3 distinct points'):
+            load_features_poly(write(tmp_path, text))
+
+    def test_degenerate_closed_ring_is_rejected(self, tmp_path):
+        """Three lines but two corners: a line segment, not a polygon. It
+        would otherwise pass is_rectangle() and be extracted as a bbox."""
+        text = "x\narea\n 0 0\n 1 1\n 0 0\nEND\nEND\n"
+        with pytest.raises(Exception, match='3 distinct points'):
             load_features_poly(write(tmp_path, text))
 
     def test_non_numeric_coordinate(self, tmp_path):
@@ -216,3 +265,46 @@ class TestCliWiring:
         with pytest.raises(SystemExit):
             osm_planet_extract.main()
         assert '--poly' in capsys.readouterr().out
+
+
+class TestPolygonReductionWarning:
+    """Only osmium honours polygon geometry; the others take a bbox."""
+
+    def _extract(self, kls, tmp_path, caplog, toolchain):
+        feats = load_features_poly(write(tmp_path, TWO_AREAS_WITH_HOLE))
+        p = kls('planet.osm.pbf')
+        p._run = lambda args: None
+        with caplog.at_level('WARNING'):
+            p.extract_bboxes(feats, outpath=str(tmp_path))
+        return caplog.text
+
+    def test_osmosis_warns(self, tmp_path, caplog):
+        import planetutils.planet as planet
+        text = self._extract(planet.PlanetExtractorOsmosis, tmp_path, caplog,
+                             'osmosis')
+        assert 'widened to' in text
+        assert '--toolchain=osmium' in text
+
+    def test_osmconvert_warns(self, tmp_path, caplog):
+        import planetutils.planet as planet
+        text = self._extract(planet.PlanetExtractorOsmconvert, tmp_path,
+                             caplog, 'osmctools')
+        assert 'widened to' in text
+
+    def test_no_warning_for_a_rectangular_extent(self, tmp_path, caplog):
+        import planetutils.planet as planet
+        feats = load_features_poly(write(tmp_path, SIMPLE))
+        p = planet.PlanetExtractorOsmosis('planet.osm.pbf')
+        p._run = lambda args: None
+        with caplog.at_level('WARNING'):
+            p.extract_bboxes(feats, outpath=str(tmp_path))
+        assert 'widened to' not in caplog.text
+
+    def test_osmium_does_not_warn(self, tmp_path, caplog):
+        import planetutils.planet as planet
+        feats = load_features_poly(write(tmp_path, TWO_AREAS_WITH_HOLE))
+        p = planet.PlanetExtractorOsmium('planet.osm.pbf')
+        p._run = lambda args: None
+        with caplog.at_level('WARNING'):
+            p.extract_bboxes(feats, outpath=str(tmp_path))
+        assert 'widened to' not in caplog.text

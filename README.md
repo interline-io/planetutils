@@ -382,9 +382,15 @@ file](https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Format),
 the format used by sources such as [JamesChevalier/cities](https://github.com/JamesChevalier/cities):
 
 ```sh
-osm_planet_extract --poly=berlin.poly --outpath=data/osm_extracts planet-latest.osm.pbf
+osm_planet_extract --toolchain=osmium --poly=berlin.poly --outpath=data/osm_extracts planet-latest.osm.pbf
 elevation_tile_download --poly=berlin.poly --zoom=12 --outpath=data/elevation
 ```
+
+Note the `--toolchain=osmium`: only Osmium extracts along polygon boundaries.
+The osmosis and osmctools toolchains take a bounding box, so they widen a
+polygon to its extent — which for a multi-section file, such as a mainland
+plus an offshore island, can be far larger than intended. PlanetUtils warns
+when that happens.
 
 The file's first line names the extract. A section name prefixed with `!`
 subtracts that ring, producing a hole. Multiple sections become a single

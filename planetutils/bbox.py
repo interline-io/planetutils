@@ -111,8 +111,10 @@ def load_features_poly(path):
         raise Exception('empty poly file: %s'%path)
 
     name = lines.pop(0)
-    outers = []
-    inners = []
+    # Each polygon is [outer, *holes]. A `!` section cuts the ring it
+    # follows, which is the format's convention, so holes attach to the most
+    # recent outer rather than all landing on the first.
+    polygons = []
     while lines:
         section = lines.pop(0)
         if section == 'END':
@@ -135,24 +137,31 @@ def load_features_poly(path):
             ring.append([lon, lat])
         else:
             raise Exception('unterminated section %r in %s'%(section, path))
-        if len(ring) < 3:
+        # Count distinct points, not lines: an already-closed ring of three
+        # lines has only two corners, and would otherwise pass as a polygon
+        # that is really a line segment.
+        if len({tuple(point) for point in ring} ) < 3:
             raise Exception(
-                'section %r in %s needs at least 3 points'%(section, path))
+                'section %r in %s needs at least 3 distinct points'
+                % (section, path))
         # The closing point may be omitted; GeoJSON requires it.
         if ring[0] != ring[-1]:
             ring.append(list(ring[0]))
-        (inners if is_hole else outers).append(ring)
+        if is_hole:
+            if not polygons:
+                raise Exception(
+                    'hole section %r precedes any polygon in %s'
+                    % (section, path))
+            polygons[-1].append(ring)
+        else:
+            polygons.append([ring])
 
-    if not outers:
+    if not polygons:
         raise Exception('no polygons found in %s'%path)
 
-    if len(outers) == 1:
-        geometry = {'type': 'Polygon', 'coordinates': [outers[0]] + inners}
+    if len(polygons) == 1:
+        geometry = {'type': 'Polygon', 'coordinates': polygons[0]}
     else:
-        # Holes cannot be attributed to a particular outer ring without
-        # point-in-polygon tests, so they are attached to the first.
-        polygons = [[outer] for outer in outers]
-        polygons[0].extend(inners)
         geometry = {'type': 'MultiPolygon', 'coordinates': polygons}
 
     return {name: Feature(geometry=geometry)}
