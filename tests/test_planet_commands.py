@@ -411,12 +411,16 @@ class TestSameInputOutputGuard:
     run to completion and silently corrupt the planet, because both
     toolchains read the input while writing the output."""
 
-    def _updater(self, kls, tmp_path):
+    def _updater(self, kls, tmp_path, monkeypatch=None):
         osmpath = tmp_path / 'planet.osm.pbf'
         osmpath.write_bytes(b'x')
         u = kls(str(osmpath))
         record(u)
         u.get_timestamp = lambda: '2018-01-01T00:00:00Z'
+        # The osmosis updater's happy path fetches a replication sequence
+        # from a third-party host. Nothing in this module may touch the
+        # network, so stub it.
+        u._initialize_state = lambda: None
         return u, osmpath
 
     @pytest.mark.parametrize('kls', [planet.PlanetUpdaterOsmium,

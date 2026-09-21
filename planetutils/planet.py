@@ -75,6 +75,34 @@ def require_binary(name):
         '%s not found on PATH.\n%s' % (name, INSTALL_HINTS.get(name, '')))
 
 
+def check_update_paths(osmpath, outpath):
+    """Refuse to write an updated planet over its own input.
+
+    Both toolchains read the input while writing the output, so passing the
+    same file for both produces a corrupt planet rather than an error -- the
+    command appears to succeed. Catches the same file reached by a different
+    spelling (a relative path, a symlink, a hardlink, or a case-insensitive
+    filesystem) too.
+
+    Takes plain paths so the CLI can call it before downloading a planet
+    that may be tens of gigabytes.
+    """
+    if os.path.exists(outpath) and os.path.exists(osmpath):
+        try:
+            same = os.path.samefile(osmpath, outpath)
+        except OSError:
+            same = False
+    else:
+        same = (os.path.normcase(os.path.realpath(osmpath)) ==
+                os.path.normcase(os.path.realpath(outpath)))
+    if same:
+        raise PlanetPathError(
+            'input and output are the same file: %s\n'
+            'The planet is read while the update is written, so this would '
+            'corrupt it. Write to a new path and replace the original '
+            'afterwards.' % outpath)
+
+
 class PlanetBase:
     # Set by extract_commands(): when commands are only being printed, any
     # config file they reference has to outlive the call.
@@ -106,32 +134,10 @@ class PlanetBase:
         return self._run(args)
 
     def check_update_paths(self, outpath):
-        """Refuse to write the updated planet over its own input.
-
-        Both toolchains read the input while writing the output, so passing
-        the same file for both produces a corrupt planet rather than an
-        error -- the command appears to succeed. Catches the same file
-        reached by a different spelling (a relative path, a symlink, a
-        hardlink, or a case-insensitive filesystem) too.
-        """
         if not os.path.exists(self.osmpath):
             raise PlanetPathError(
                 'planet file does not exist: %s' % self.osmpath)
-        same = False
-        if os.path.exists(outpath):
-            try:
-                same = os.path.samefile(self.osmpath, outpath)
-            except OSError:
-                same = False
-        else:
-            same = (os.path.normcase(os.path.realpath(self.osmpath)) ==
-                    os.path.normcase(os.path.realpath(outpath)))
-        if same:
-            raise PlanetPathError(
-                'input and output are the same file: %s\n'
-                'The planet is read while the update is written, so this '
-                'would corrupt it. Write to a new path and replace the '
-                'original afterwards.' % outpath)
+        check_update_paths(self.osmpath, outpath)
 
     def osmosis(self, *args):
         return self.command(['osmosis'] + list(args))
