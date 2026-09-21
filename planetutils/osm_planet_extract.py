@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--outpath', help='Extract output directory', default='.')
     parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
     parser.add_argument('--geojson', help='Path to GeoJSON file: bbox for each feature is extracted.')
+    parser.add_argument('--poly', help='Path to Osmosis .poly file.')
     parser.add_argument('--name', help='Name to give to extract file.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
@@ -42,10 +43,12 @@ def main():
         bboxes = bbox.load_features_csv(args.csv)
     elif args.geojson:
         bboxes = bbox.load_features_geojson(args.geojson)
+    elif args.poly:
+        bboxes = bbox.load_features_poly(args.poly)
     elif (args.bbox and args.name):
         bboxes[args.name] = bbox.load_feature_string(args.bbox)
     else:
-        parser.error('must specify --csv, --geojson, or --bbox and --name')
+        parser.error('must specify --csv, --geojson, --poly, or --bbox and --name')
 
     if args.commands:
         commands = p.extract_commands(bboxes, outpath=args.outpath, strategy=args.strategy)

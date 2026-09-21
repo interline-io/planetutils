@@ -143,6 +143,21 @@ class PlanetBase:
 class Planet(PlanetBase):
     pass
 
+def warn_if_polygon_reduced(name, bbox, toolchain):
+    """Warn when a polygon extent is about to be reduced to its bbox.
+
+    Only the osmium toolchain honours polygon geometry; osmosis and
+    osmconvert take a bounding box. Silently widening a multi-polygon to its
+    bounding box can pull in far more than the user asked for, so say so.
+    """
+    is_rectangle = getattr(bbox, 'is_rectangle', None)
+    if is_rectangle is not None and not is_rectangle():
+        log.warning(
+            '%s: the %s toolchain extracts bounding boxes, so this polygon '
+            'is being widened to %s. Use --toolchain=osmium to honour the '
+            'polygon.' % (name, toolchain, bbox.bbox()))
+
+
 class PlanetExtractor(PlanetBase):
     def extract_bboxes(self, bboxes, workers=1, outpath='.'):
         raise NotImplementedError
@@ -167,6 +182,7 @@ class PlanetExtractorOsmosis(PlanetExtractor):
         args += ['--read-pbf-fast', self.osmpath, 'workers=%s'%int(workers)]
         args += ['--tee', str(len(bboxes))]
         for name, bbox in bboxes.items():
+            warn_if_polygon_reduced(name, bbox, 'osmosis')
             validate_bbox(bbox)
             left, bottom, right, top = bbox
             arg = [
@@ -187,6 +203,7 @@ class PlanetExtractorOsmconvert(PlanetExtractor):
             self.extract_bbox(name, bbox, outpath=outpath)
 
     def extract_bbox(self, name, bbox, workers=1, outpath='.', **kw):
+        warn_if_polygon_reduced(name, bbox, 'osmctools')
         validate_bbox(bbox)
         left, bottom, right, top = bbox
         args = [

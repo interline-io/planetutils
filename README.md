@@ -23,6 +23,7 @@
 - [Specifying extract extents](#specifying-extract-extents)
   * [Bounding box file: CSV format](#bounding-box-file-csv-format)
   * [Bounding box/polygon file: GeoJSON format](#bounding-boxpolygon-file-geojson-format)
+  * [Polygon file: Osmosis .poly format](#polygon-file-osmosis-poly-format)
 - [Switching toolchains](#switching-toolchains)
 - [Support](#support)
 
@@ -346,7 +347,7 @@ valhalla_tilepack_download -h
 ## Specifying extract extents
 <a name="bounding-box"></a>
 
-When extracting multiple bounding boxes or polygons from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your extents in a single file, either CSV or GeoJSON format.
+When extracting multiple bounding boxes or polygons from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your extents in a single file: CSV, GeoJSON, or Osmosis .poly format.
 
 ### Bounding box file: CSV format
 
@@ -373,6 +374,27 @@ osm_planet_extract --geojson=examples/test.geojson examples/san-francisco-downto
 ```
 
 To draw extents in GeoJSON, try the tool at http://geojson.io/
+
+### Polygon file: Osmosis .poly format
+
+Extents can also be given as an [Osmosis .poly
+file](https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Format),
+the format used by sources such as [JamesChevalier/cities](https://github.com/JamesChevalier/cities):
+
+```sh
+osm_planet_extract --toolchain=osmium --poly=berlin.poly --outpath=data/osm_extracts planet-latest.osm.pbf
+elevation_tile_download --poly=berlin.poly --zoom=12 --outpath=data/elevation
+```
+
+Note the `--toolchain=osmium`: only Osmium extracts along polygon boundaries.
+The osmosis and osmctools toolchains take a bounding box, so they widen a
+polygon to its extent — which for a multi-section file, such as a mainland
+plus an offshore island, can be far larger than intended. PlanetUtils warns
+when that happens.
+
+The file's first line names the extract. A section name prefixed with `!`
+subtracts that ring, producing a hole. Multiple sections become a single
+multi-polygon extract under that one name.
 
 ## Switching toolchains
 
