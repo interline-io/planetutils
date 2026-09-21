@@ -54,7 +54,7 @@ PlanetUtils is a "high level" library that makes use of [Osmosis](https://wiki.o
 Make sure you have [Docker](https://www.docker.com/community-edition) installed. Then:
 
 ```sh
-docker pull ghcr.io/interline-io/planetutils:v0.5.0
+docker pull ghcr.io/interline-io/planetutils:v0.5.1
 ```
 
 Any of the example commands below can be executed with `docker run`. It may be helpful to mount a local directory inside the container for persistence and to access output files.
@@ -62,7 +62,7 @@ Any of the example commands below can be executed with `docker run`. It may be h
 - Example of using `docker run` with the `data` directory mounted as `/data`:
 
 ```sh
-docker run --rm -v ${PWD}/data:/data -t ghcr.io/interline-io/planetutils:v0.5.0 <command>
+docker run --rm -v ${PWD}/data:/data -t ghcr.io/interline-io/planetutils:v0.5.1 <command>
 ```
 
 ### Using Homebrew on Mac OS
@@ -79,13 +79,13 @@ Requires **Python 3.11 or newer**. The package is not published to PyPI; install
 straight from a git tag:
 
 ```sh
-uv tool install "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.0"
+uv tool install "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.1"
 ```
 
 or with pip:
 
 ```sh
-pip install "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.0"
+pip install "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.1"
 ```
 
 #### System dependencies
@@ -122,7 +122,7 @@ Or skip it entirely and use the Docker container, which bundles the full toolcha
 Downloading a planet from S3 with `osm_planet_update --s3` needs `boto3`:
 
 ```sh
-uv tool install --with boto3 "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.0"
+uv tool install --with boto3 "interline-planetutils @ git+https://github.com/interline-io/planetutils@v0.5.1"
 ```
 
 #### Developing
