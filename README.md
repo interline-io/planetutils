@@ -347,7 +347,7 @@ valhalla_tilepack_download -h
 ## Specifying extract extents
 <a name="bounding-box"></a>
 
-When extracting multiple bounding boxes or polygons from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your extents in a single file, either CSV or GeoJSON format.
+When extracting multiple bounding boxes or polygons from an OSM planet, or when downloading multiple bounding boxes of elevation tiles, you can specify your extents in a single file: CSV, GeoJSON, or Osmosis .poly format.
 
 ### Bounding box file: CSV format
 
