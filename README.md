@@ -259,6 +259,21 @@ By default tiles are downloaded from the AWS `us-east-1` region. To instead down
 elevation_tile_download --outpath=data/elevation --region=eu-central-1
 ```
 
+Skadi tiles are served gzipped and are inflated on write by default. A full
+planet is about 1.6 TB inflated, against roughly 350-500 GB kept compressed.
+Valhalla reads `.hgt.gz` natively, so `--keep-compressed` stores them packed:
+
+```sh
+elevation_tile_download --format=skadi --keep-compressed --csv=bboxes.csv --outpath=data/elevation
+```
+
+Compression varies with terrain — roughly 3x for mountainous tiles and up to
+20x for flat or open-ocean ones. Tiles already on disk in either form are
+recognised, so turning the flag on or off does not re-download a complete
+cache. Note that it does not *convert* one either: a run whose tiles are all
+present in the other form writes nothing and says so. Note that Valhalla inflates compressed tiles as it reads them, trading
+CPU for less I/O per tile; that is usually a win on network storage.
+
 Tiles are downloaded concurrently. The work is latency-bound rather than
 bandwidth-bound, so this is worth roughly an order of magnitude. Measured over
 the 528 tiles of `--bbox=-122.8,37.4,-121.9,38.2 --zoom=13`: about 104 seconds

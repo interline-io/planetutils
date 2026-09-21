@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import math
 import os
+import struct
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from . import download, log
@@ -225,6 +226,35 @@ class ElevationGeotiffDownloader(ElevationDownloader):
 class ElevationSkadiDownloader(ElevationDownloader):
     HGT_SIZE = (3601 * 3601 * 2)
 
+    # gzip magic; a .hgt.gz has no predictable size, so this is what
+    # distinguishes a real tile from a truncated download or an error body.
+    GZIP_MAGIC = b'\x1f\x8b'
+
+    def __init__(self, *args, **kwargs):
+        # Skadi tiles are served gzipped and inflated on write, so what lands
+        # on disk is several times larger than what came over the wire -- a
+        # full planet is ~1.6 TB inflated against ~350-500 GB compressed.
+        # Valhalla reads .hgt.gz natively, so keeping them packed is an
+        # option rather than a conversion step.
+        self.keep_compressed = kwargs.pop('keep_compressed', False)
+        # Tiles satisfied by the other form, reported after a run: switching
+        # the flag does not convert an existing cache, so a run can complete
+        # having written nothing.
+        self.matched_other_form = 0
+        super().__init__(*args, **kwargs)
+
+    def download_bbox(self, bbox, bucket='elevation-tiles-prod',
+                      prefix='geotiff'):
+        self.matched_other_form = 0
+        super().download_bbox(bbox, bucket=bucket, prefix=prefix)
+        if self.matched_other_form:
+            wanted = '.hgt.gz' if self.keep_compressed else '.hgt'
+            log.info(
+                '%s tiles were already present in the other form; '
+                '--keep-compressed does not convert an existing cache, so '
+                'no %s was written for them'
+                % (self.matched_other_form, wanted))
+
     def get_bbox_tiles(self, bbox):
         left, bottom, right, top = validate_bbox(bbox)
         min_x = int(math.floor(left))
@@ -238,12 +268,62 @@ class ElevationSkadiDownloader(ElevationDownloader):
         return tiles
 
     def tile_exists(self, op):
-        if os.path.exists(op) and os.stat(op).st_size == self.HGT_SIZE:
+        """True when a complete tile is already on disk, in either form.
+
+        Accepting both means switching --keep-compressed on or off does not
+        re-download a cache that is already complete; Valhalla reads either.
+
+        The form this run would write is checked first and must be intact: a
+        corrupt file there is re-downloaded even when a good copy of the
+        other form sits beside it, since that is the file being replaced.
+        """
+        raw = op[:-3] if op.endswith('.gz') else op
+        gz = raw + '.gz'
+        target, other = (gz, raw) if op.endswith('.gz') else (raw, gz)
+        if os.path.exists(target):
+            return self.tile_is_complete(target)
+        if self.tile_is_complete(other):
+            self.matched_other_form += 1
             return True
+        return False
+
+    def tile_is_complete(self, path):
+        if path.endswith('.gz'):
+            return self.gzip_tile_exists(path)
+        try:
+            return os.stat(path).st_size == self.HGT_SIZE
+        except OSError:
+            return False
+
+    def gzip_tile_exists(self, path):
+        """True when `path` is a complete gzip stream of one Skadi tile.
+
+        The magic bytes alone would accept a truncated stream, since they
+        survive any truncation. gzip's trailer ends with ISIZE, the
+        uncompressed length, so comparing that to HGT_SIZE gives the same
+        guarantee the inflated form gets from its exact size. HGT_SIZE is
+        well under the 2^32 that ISIZE wraps at.
+        """
+        try:
+            with open(path, 'rb') as f:
+                if f.read(2) != self.GZIP_MAGIC:
+                    return False
+                if os.fstat(f.fileno()).st_size < 18:
+                    return False    # too short to hold header and trailer
+                f.seek(-4, os.SEEK_END)
+                isize = struct.unpack('<I', f.read(4))[0]
+        except OSError:
+            return False
+        return isize == self.HGT_SIZE
 
     def download_tile(self, bucket, prefix, z, x, y, suffix='', session=None):
-        super().download_tile(bucket, 'skadi', z, x, y, suffix='.gz',
-                              session=session)
+        # The remote object is always .hgt.gz. download_tile builds the URL
+        # from tile_path() plus this suffix, so when the local name already
+        # carries .gz no extra suffix belongs on the URL.
+        super().download_tile(
+            bucket, 'skadi', z, x, y,
+            suffix='' if self.keep_compressed else '.gz',
+            session=session)
 
     def tile_path(self, z, x, y):
         def ns(i):
@@ -251,7 +331,12 @@ class ElevationSkadiDownloader(ElevationDownloader):
 
         def ew(i):
             return 'W%03d'%abs(i) if i < 0 else 'E%03d'%abs(i)
-        return [ns(y), '%s%s.hgt'%(ns(y), ew(x))]
+        suffix = '.hgt.gz' if self.keep_compressed else '.hgt'
+        return [ns(y), '%s%s%s'%(ns(y), ew(x), suffix)]
 
     def _download(self, url, op, session=None):
-        download.download_gzip(url, op, session=session)
+        if self.keep_compressed:
+            # Store the gzip stream as it arrived, rather than inflating it.
+            download.download(url, op, session=session, compressed=True)
+        else:
+            download.download_gzip(url, op, session=session)

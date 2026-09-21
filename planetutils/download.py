@@ -121,10 +121,19 @@ def _write_atomically(response, outpath, transform=None):
         raise
 
 
-def download(url, outpath, session=None):
-    """Download `url` to `outpath`."""
-    r = _get(url, session=session)
-    r.raw.decode_content = True
+def download(url, outpath, session=None, compressed=False):
+    """Download `url` to `outpath`.
+
+    `compressed` asks for the payload verbatim, for a body that is already
+    compressed and should be stored that way.
+    """
+    r = _get(url, compressed=compressed, session=session)
+    # Do NOT decode when storing verbatim. Content-Encoding conflates two
+    # things: a transfer encoding the client negotiated, and an encoding
+    # stored with the object. S3 returns the latter from object metadata
+    # whatever Accept-Encoding asked for, so decoding here would inflate a
+    # .gz object into the file meant to hold it compressed.
+    r.raw.decode_content = not compressed
     _write_atomically(r, outpath)
 
 

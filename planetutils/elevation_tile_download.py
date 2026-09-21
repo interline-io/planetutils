@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import sys
 
 from . import log
 from .bbox import load_feature_string, load_features_csv, load_features_poly
@@ -19,9 +18,14 @@ def main():
                         help='Concurrent downloads (1-%s).' % MAX_WORKERS)
     parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
     parser.add_argument('--poly', help='Path to Osmosis .poly file.')
+    parser.add_argument('--keep-compressed', action='store_true',
+                        help='Skadi only: store tiles as .hgt.gz instead of '
+                             'inflating them. Roughly 3-20x less disk; '
+                             'Valhalla reads either.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
-    parser.add_argument('--format', help='Download format', default='geotiff')
+    parser.add_argument('--format', help='Download format',
+                        choices=('geotiff', 'skadi'), default='geotiff')
     parser.add_argument('--zoom', help='Zoom level', default=0, type=int)
     parser.add_argument('--region', help='AWS region for downloads (us-east-1, eu-central-1)', default='us-east-1')
 
@@ -30,15 +34,17 @@ def main():
     if args.verbose:
         log.set_verbose()
 
+    if args.keep_compressed and args.format != 'skadi':
+        parser.error('--keep-compressed applies to --format=skadi; '
+                     '%s tiles are not served gzipped' % args.format)
+
     if args.format == 'geotiff':
         p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom,
                                        region=args.region, workers=args.workers)
     elif args.format == 'skadi':
         p = ElevationSkadiDownloader(args.outpath, region=args.region,
-                                     workers=args.workers)
-    else:
-        print("Unknown format: %s"%args.format)
-        sys.exit(1)
+                                     workers=args.workers,
+                                     keep_compressed=args.keep_compressed)
 
     if args.csv:
         p.download_bboxes(load_features_csv(args.csv))
