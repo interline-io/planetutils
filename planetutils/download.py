@@ -121,9 +121,16 @@ def _write_atomically(response, outpath, transform=None):
         raise
 
 
-def download(url, outpath, session=None):
-    """Download `url` to `outpath`."""
-    r = _get(url, session=session)
+def download(url, outpath, session=None, compressed=False):
+    """Download `url` to `outpath`.
+
+    `compressed` asks for the payload verbatim, for a body that is already
+    compressed and should be stored that way.
+    """
+    r = _get(url, compressed=compressed, session=session)
+    # Always strip transfer encoding: with Accept-Encoding: identity there
+    # should be none, and if a server applies one anyway this recovers the
+    # stored bytes rather than leaving them doubly encoded.
     r.raw.decode_content = True
     _write_atomically(r, outpath)
 
