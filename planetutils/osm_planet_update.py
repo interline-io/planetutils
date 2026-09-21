@@ -9,6 +9,7 @@ from .planet import (
     PlanetDownloaderS3,
     PlanetUpdaterOsmium,
     PlanetUpdaterOsmosis,
+    check_update_paths,
 )
 
 
@@ -30,6 +31,12 @@ def main():
 
     if args.verbose:
         log.set_verbose()
+
+    # Validate the paths before doing anything expensive: the planet is
+    # downloaded below when it is missing, and reporting "input and output
+    # are the same file" only after fetching tens of gigabytes would be
+    # a poor trade.
+    check_update_paths(args.osmpath, args.outpath)
 
     if not os.path.exists(args.osmpath):
         log.info("planet does not exist; downloading")

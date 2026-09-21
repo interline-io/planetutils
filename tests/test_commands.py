@@ -78,3 +78,43 @@ def test_missing_binary_is_reported_cleanly(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert err.startswith('error: osmium not found on PATH')
     assert 'Traceback' not in err
+
+
+def test_osm_planet_update_rejects_identical_input_and_output(tmp_path,
+                                                              monkeypatch,
+                                                              capsys):
+    """Issue #5: this used to run to completion and corrupt the planet."""
+    import sys
+
+    from planetutils import osm_planet_update
+    osmpath = tmp_path / 'planet.osm.pbf'
+    osmpath.write_bytes(b'x')
+    monkeypatch.setattr(sys, 'argv', [
+        'osm_planet_update', str(osmpath), str(osmpath)])
+    with pytest.raises(SystemExit) as e:
+        osm_planet_update.main()
+    assert e.value.code == 1
+    err = capsys.readouterr().err
+    assert 'same file' in err
+    assert 'Traceback' not in err
+
+
+def test_osm_planet_update_checks_paths_before_downloading(tmp_path,
+                                                           monkeypatch,
+                                                           capsys):
+    """The planet is downloaded when missing, so reporting the same-file
+    error afterwards would mean fetching tens of gigabytes first."""
+    import sys
+    from unittest import mock
+
+    from planetutils import osm_planet_update
+    missing = str(tmp_path / 'missing.osm.pbf')
+    monkeypatch.setattr(sys, 'argv',
+                        ['osm_planet_update', missing, missing])
+    with mock.patch.object(osm_planet_update, 'PlanetDownloaderHttp') as http, \
+         mock.patch.object(osm_planet_update, 'PlanetDownloaderS3') as s3:
+        with pytest.raises(SystemExit) as e:
+            osm_planet_update.main()
+    assert e.value.code == 1
+    assert 'same file' in capsys.readouterr().err
+    assert not http.called and not s3.called, 'downloaded before validating'

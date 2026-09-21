@@ -53,6 +53,10 @@ class MissingBinaryError(Exception):
     """Raised when a required external tool is not on PATH."""
 
 
+class PlanetPathError(Exception):
+    """Raised when the input/output planet paths are unusable."""
+
+
 def require_binary(name):
     """Resolve `name` on PATH, raising an actionable error if absent.
 
@@ -69,6 +73,34 @@ def require_binary(name):
         return found
     raise MissingBinaryError(
         '%s not found on PATH.\n%s' % (name, INSTALL_HINTS.get(name, '')))
+
+
+def check_update_paths(osmpath, outpath):
+    """Refuse to write an updated planet over its own input.
+
+    Both toolchains read the input while writing the output, so passing the
+    same file for both produces a corrupt planet rather than an error -- the
+    command appears to succeed. Catches the same file reached by a different
+    spelling (a relative path, a symlink, a hardlink, or a case-insensitive
+    filesystem) too.
+
+    Takes plain paths so the CLI can call it before downloading a planet
+    that may be tens of gigabytes.
+    """
+    if os.path.exists(outpath) and os.path.exists(osmpath):
+        try:
+            same = os.path.samefile(osmpath, outpath)
+        except OSError:
+            same = False
+    else:
+        same = (os.path.normcase(os.path.realpath(osmpath)) ==
+                os.path.normcase(os.path.realpath(outpath)))
+    if same:
+        raise PlanetPathError(
+            'input and output are the same file: %s\n'
+            'The planet is read while the update is written, so this would '
+            'corrupt it. Write to a new path and replace the original '
+            'afterwards.' % outpath)
 
 
 class PlanetBase:
@@ -100,6 +132,12 @@ class PlanetBase:
     def command(self, args):
         log.debug(args)
         return self._run(args)
+
+    def check_update_paths(self, outpath):
+        if not os.path.exists(self.osmpath):
+            raise PlanetPathError(
+                'planet file does not exist: %s' % self.osmpath)
+        check_update_paths(self.osmpath, outpath)
 
     def osmosis(self, *args):
         return self.command(['osmosis'] + list(args))
@@ -306,15 +344,13 @@ class PlanetUpdater(PlanetBase):
 class PlanetUpdaterOsmium(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, size='1024', **kw):
         changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain
-        if not os.path.exists(self.osmpath):
-            raise Exception('planet file does not exist: %s'%self.osmpath)
+        self.check_update_paths(outpath)
         self.command(['pyosmium-up-to-date', '-s', size, '--server',
                       changeset_url, '-v', self.osmpath, '-o', outpath])
 
 class PlanetUpdaterOsmosis(PlanetBase):
     def update_planet(self, outpath, grain='minute', changeset_url=None, **kw):
-        if not os.path.exists(self.osmpath):
-            raise Exception('planet file does not exist: %s'%self.osmpath)
+        self.check_update_paths(outpath)
         self.changeset_url = changeset_url or 'https://planet.openstreetmap.org/replication/%s'%grain
         self._initialize()
         self._initialize_state()
