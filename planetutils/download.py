@@ -128,10 +128,12 @@ def download(url, outpath, session=None, compressed=False):
     compressed and should be stored that way.
     """
     r = _get(url, compressed=compressed, session=session)
-    # Always strip transfer encoding: with Accept-Encoding: identity there
-    # should be none, and if a server applies one anyway this recovers the
-    # stored bytes rather than leaving them doubly encoded.
-    r.raw.decode_content = True
+    # Do NOT decode when storing verbatim. Content-Encoding conflates two
+    # things: a transfer encoding the client negotiated, and an encoding
+    # stored with the object. S3 returns the latter from object metadata
+    # whatever Accept-Encoding asked for, so decoding here would inflate a
+    # .gz object into the file meant to hold it compressed.
+    r.raw.decode_content = not compressed
     _write_atomically(r, outpath)
 
 

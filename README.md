@@ -270,7 +270,8 @@ elevation_tile_download --format=skadi --keep-compressed --csv=bboxes.csv --outp
 Compression varies with terrain — roughly 3x for mountainous tiles and up to
 20x for flat or open-ocean ones. Tiles already on disk in either form are
 recognised, so turning the flag on or off does not re-download a complete
-cache. Note that Valhalla inflates compressed tiles as it reads them, trading
+cache. Note that it does not *convert* one either: a run whose tiles are all
+present in the other form writes nothing and says so. Note that Valhalla inflates compressed tiles as it reads them, trading
 CPU for less I/O per tile; that is usually a win on network storage.
 
 Tiles are downloaded concurrently. The work is latency-bound rather than

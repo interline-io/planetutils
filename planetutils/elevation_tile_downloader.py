@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import math
 import os
+import struct
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from . import download, log
@@ -236,7 +237,23 @@ class ElevationSkadiDownloader(ElevationDownloader):
         # Valhalla reads .hgt.gz natively, so keeping them packed is an
         # option rather than a conversion step.
         self.keep_compressed = kwargs.pop('keep_compressed', False)
+        # Tiles satisfied by the other form, reported after a run: switching
+        # the flag does not convert an existing cache, so a run can complete
+        # having written nothing.
+        self.matched_other_form = 0
         super().__init__(*args, **kwargs)
+
+    def download_bbox(self, bbox, bucket='elevation-tiles-prod',
+                      prefix='geotiff'):
+        self.matched_other_form = 0
+        super().download_bbox(bbox, bucket=bucket, prefix=prefix)
+        if self.matched_other_form:
+            wanted = '.hgt.gz' if self.keep_compressed else '.hgt'
+            log.info(
+                '%s tiles were already present in the other form; '
+                '--keep-compressed does not convert an existing cache, so '
+                'no %s was written for them'
+                % (self.matched_other_form, wanted))
 
     def get_bbox_tiles(self, bbox):
         left, bottom, right, top = validate_bbox(bbox)
@@ -251,28 +268,53 @@ class ElevationSkadiDownloader(ElevationDownloader):
         return tiles
 
     def tile_exists(self, op):
-        """True when either form of the tile is already on disk.
+        """True when a complete tile is already on disk, in either form.
 
         Accepting both means switching --keep-compressed on or off does not
         re-download a cache that is already complete; Valhalla reads either.
+
+        The form this run would write is checked first and must be intact: a
+        corrupt file there is re-downloaded even when a good copy of the
+        other form sits beside it, since that is the file being replaced.
         """
         raw = op[:-3] if op.endswith('.gz') else op
-        # A complete .hgt is exactly HGT_SIZE, so a truncated one is caught.
-        if os.path.exists(raw) and os.stat(raw).st_size == self.HGT_SIZE:
+        gz = raw + '.gz'
+        target, other = (gz, raw) if op.endswith('.gz') else (raw, gz)
+        if os.path.exists(target):
+            return self.tile_is_complete(target)
+        if self.tile_is_complete(other):
+            self.matched_other_form += 1
             return True
-        return self.gzip_tile_exists(raw + '.gz')
+        return False
+
+    def tile_is_complete(self, path):
+        if path.endswith('.gz'):
+            return self.gzip_tile_exists(path)
+        try:
+            return os.stat(path).st_size == self.HGT_SIZE
+        except OSError:
+            return False
 
     def gzip_tile_exists(self, path):
-        """True when `path` is a plausible gzip stream.
+        """True when `path` is a complete gzip stream of one Skadi tile.
 
-        Size cannot be checked, so verify the magic bytes instead: that
-        still rejects an empty file or a stored error body.
+        The magic bytes alone would accept a truncated stream, since they
+        survive any truncation. gzip's trailer ends with ISIZE, the
+        uncompressed length, so comparing that to HGT_SIZE gives the same
+        guarantee the inflated form gets from its exact size. HGT_SIZE is
+        well under the 2^32 that ISIZE wraps at.
         """
         try:
             with open(path, 'rb') as f:
-                return f.read(2) == self.GZIP_MAGIC
+                if f.read(2) != self.GZIP_MAGIC:
+                    return False
+                if os.fstat(f.fileno()).st_size < 18:
+                    return False    # too short to hold header and trailer
+                f.seek(-4, os.SEEK_END)
+                isize = struct.unpack('<I', f.read(4))[0]
         except OSError:
             return False
+        return isize == self.HGT_SIZE
 
     def download_tile(self, bucket, prefix, z, x, y, suffix='', session=None):
         # The remote object is always .hgt.gz. download_tile builds the URL
