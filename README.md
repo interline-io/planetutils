@@ -23,6 +23,7 @@
 - [Specifying extract extents](#specifying-extract-extents)
   * [Bounding box file: CSV format](#bounding-box-file-csv-format)
   * [Bounding box/polygon file: GeoJSON format](#bounding-boxpolygon-file-geojson-format)
+  * [Polygon file: Osmosis .poly format](#polygon-file-osmosis-poly-format)
 - [Switching toolchains](#switching-toolchains)
 - [Support](#support)
 
@@ -373,6 +374,21 @@ osm_planet_extract --geojson=examples/test.geojson examples/san-francisco-downto
 ```
 
 To draw extents in GeoJSON, try the tool at http://geojson.io/
+
+### Polygon file: Osmosis .poly format
+
+Extents can also be given as an [Osmosis .poly
+file](https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Format),
+the format used by sources such as [JamesChevalier/cities](https://github.com/JamesChevalier/cities):
+
+```sh
+osm_planet_extract --poly=berlin.poly --outpath=data/osm_extracts planet-latest.osm.pbf
+elevation_tile_download --poly=berlin.poly --zoom=12 --outpath=data/elevation
+```
+
+The file's first line names the extract. A section name prefixed with `!`
+subtracts that ring, producing a hole. Multiple sections become a single
+multi-polygon extract under that one name.
 
 ## Switching toolchains
 

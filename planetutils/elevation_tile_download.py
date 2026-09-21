@@ -3,7 +3,7 @@ import argparse
 import sys
 
 from . import log
-from .bbox import load_feature_string, load_features_csv
+from .bbox import load_feature_string, load_features_csv, load_features_poly
 from .elevation_tile_downloader import (
     DEFAULT_WORKERS,
     MAX_WORKERS,
@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--workers', type=int, default=DEFAULT_WORKERS,
                         help='Concurrent downloads (1-%s).' % MAX_WORKERS)
     parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
+    parser.add_argument('--poly', help='Path to Osmosis .poly file.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
     parser.add_argument('--format', help='Download format', default='geotiff')
@@ -41,6 +42,8 @@ def main():
 
     if args.csv:
         p.download_bboxes(load_features_csv(args.csv))
+    elif args.poly:
+        p.download_bboxes(load_features_poly(args.poly))
     elif args.bbox:
         p.download_bbox(load_feature_string(args.bbox))
     else:

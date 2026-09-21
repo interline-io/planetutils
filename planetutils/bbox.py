@@ -83,6 +83,80 @@ def load_features_csv(csvpath):
             bboxes[row[0]] = f
     return bboxes
 
+def load_features_poly(path):
+    """Load extents from an Osmosis .poly file.
+
+    https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Format
+
+    The file opens with a name line, then one or more polygon sections: a
+    section name, coordinate lines given as `longitude latitude`, and END.
+    A final END closes the file. A section name prefixed with `!` subtracts
+    that ring from the area, which maps onto a GeoJSON interior ring.
+
+    Coordinates are conventionally in scientific notation, but the format is
+    flexible about it, so float() does the parsing.
+
+    Every section becomes one Feature keyed by the file's name line, so a
+    multi-section file produces a single named extract -- matching how
+    osmium and osmosis treat these files.
+    """
+    if not os.path.exists(path):
+        raise Exception('file does not exist: %s'%path)
+    with open(path, encoding='utf-8') as f:
+        lines = [line.strip() for line in f]
+
+    # Drop blank lines: multi-section files separate sections with them.
+    lines = [line for line in lines if line]
+    if not lines:
+        raise Exception('empty poly file: %s'%path)
+
+    name = lines.pop(0)
+    outers = []
+    inners = []
+    while lines:
+        section = lines.pop(0)
+        if section == 'END':
+            break
+        is_hole = section.startswith('!')
+        ring = []
+        while lines:
+            line = lines.pop(0)
+            if line == 'END':
+                break
+            parts = line.split()
+            if len(parts) < 2:
+                raise Exception(
+                    'invalid coordinate line in %s: %r'%(path, line))
+            try:
+                lon, lat = float(parts[0]), float(parts[1])
+            except ValueError:
+                raise Exception(
+                    'invalid coordinate line in %s: %r'%(path, line)) from None
+            ring.append([lon, lat])
+        else:
+            raise Exception('unterminated section %r in %s'%(section, path))
+        if len(ring) < 3:
+            raise Exception(
+                'section %r in %s needs at least 3 points'%(section, path))
+        # The closing point may be omitted; GeoJSON requires it.
+        if ring[0] != ring[-1]:
+            ring.append(list(ring[0]))
+        (inners if is_hole else outers).append(ring)
+
+    if not outers:
+        raise Exception('no polygons found in %s'%path)
+
+    if len(outers) == 1:
+        geometry = {'type': 'Polygon', 'coordinates': [outers[0]] + inners}
+    else:
+        # Holes cannot be attributed to a particular outer ring without
+        # point-in-polygon tests, so they are attached to the first.
+        polygons = [[outer] for outer in outers]
+        polygons[0].extend(inners)
+        geometry = {'type': 'MultiPolygon', 'coordinates': polygons}
+
+    return {name: Feature(geometry=geometry)}
+
 def load_features_geojson(path):
     if not os.path.exists(path):
         raise Exception('file does not exist: %s'%path)
