@@ -4,12 +4,19 @@ import sys
 
 from . import log
 from .bbox import load_feature_string, load_features_csv
-from .elevation_tile_downloader import ElevationGeotiffDownloader, ElevationSkadiDownloader
+from .elevation_tile_downloader import (
+    DEFAULT_WORKERS,
+    MAX_WORKERS,
+    ElevationGeotiffDownloader,
+    ElevationSkadiDownloader,
+)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--outpath', help='Output path for elevation tiles.', default='.')
+    parser.add_argument('--workers', type=int, default=DEFAULT_WORKERS,
+                        help='Concurrent downloads (1-%s).' % MAX_WORKERS)
     parser.add_argument('--csv', help='Path to CSV file with bounding box definitions.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
@@ -23,9 +30,11 @@ def main():
         log.set_verbose()
 
     if args.format == 'geotiff':
-        p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom, region=args.region)
+        p = ElevationGeotiffDownloader(args.outpath, zoom=args.zoom,
+                                       region=args.region, workers=args.workers)
     elif args.format == 'skadi':
-        p = ElevationSkadiDownloader(args.outpath, region=args.region)
+        p = ElevationSkadiDownloader(args.outpath, region=args.region,
+                                     workers=args.workers)
     else:
         print("Unknown format: %s"%args.format)
         sys.exit(1)

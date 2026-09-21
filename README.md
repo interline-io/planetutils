@@ -258,6 +258,21 @@ By default tiles are downloaded from the AWS `us-east-1` region. To instead down
 elevation_tile_download --outpath=data/elevation --region=eu-central-1
 ```
 
+Tiles are downloaded concurrently. The work is latency-bound rather than
+bandwidth-bound, so this is worth roughly an order of magnitude. Measured over
+the 528 tiles of `--bbox=-122.8,37.4,-121.9,38.2 --zoom=13`: about 104 seconds
+with `--workers=1` versus about 10 seconds at the default `--workers=16`.
+Adjust it to suit your connection (1-64):
+
+```sh
+elevation_tile_download --workers=32 --bbox=-122.8,37.4,-121.9,38.2 --zoom=13
+```
+
+Transient connection errors and retryable responses (408, 429, 5xx) are retried
+with backoff. As before, a tile that still cannot be fetched fails the run; tiles
+already present in `--outpath` are skipped, so re-running resumes where it
+stopped.
+
 For complete help on command-line arguments:
 
 ```sh

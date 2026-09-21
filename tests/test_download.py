@@ -146,7 +146,7 @@ class TestDownloadCurl:
 
 class TestConnectionHandling:
     @responses.activate
-    def test_error_response_is_closed(self, tmp_path):
+    def test_error_response_is_closed(self, tmp_path, monkeypatch):
         """With stream=True the pooled connection is only released once the
         body is read or closed; an unread error body leaks it."""
         responses.add(responses.GET, URL, body=b'<Error/>', status=403)
@@ -164,10 +164,7 @@ class TestConnectionHandling:
             r.close = tracking_close
             return r
 
-        download.requests.get = spy
-        try:
-            with pytest.raises(requests.HTTPError):
-                download.download(URL, str(tmp_path / 'o'))
-        finally:
-            download.requests.get = real_get
+        monkeypatch.setattr(download.requests, 'get', spy)
+        with pytest.raises(requests.HTTPError):
+            download.download(URL, str(tmp_path / 'o'))
         assert closed, 'error response was not closed'

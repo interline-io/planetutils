@@ -31,6 +31,9 @@ classifiers = [
 
 dependencies = [
     "requests>=2.31",
+    # Imported directly for the Retry policy. 2.6.3 is the floor for
+    # retry_after_max; requests' own constraint allows far older.
+    "urllib3>=2.6.3",
     # Ships wheels for macOS arm64/x86_64, manylinux aarch64/x86_64 and
     # Windows amd64/arm64, and provides the pyosmium-up-to-date console
     # script that osm_planet_update uses. Capped because we depend on the
