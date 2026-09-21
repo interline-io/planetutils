@@ -78,3 +78,22 @@ def test_missing_binary_is_reported_cleanly(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert err.startswith('error: osmium not found on PATH')
     assert 'Traceback' not in err
+
+
+def test_osm_planet_update_rejects_identical_input_and_output(tmp_path,
+                                                              monkeypatch,
+                                                              capsys):
+    """Issue #5: this used to run to completion and corrupt the planet."""
+    import sys
+
+    from planetutils import osm_planet_update
+    osmpath = tmp_path / 'planet.osm.pbf'
+    osmpath.write_bytes(b'x')
+    monkeypatch.setattr(sys, 'argv', [
+        'osm_planet_update', str(osmpath), str(osmpath)])
+    with pytest.raises(SystemExit) as e:
+        osm_planet_update.main()
+    assert e.value.code == 1
+    err = capsys.readouterr().err
+    assert 'same file' in err
+    assert 'Traceback' not in err

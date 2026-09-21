@@ -404,3 +404,60 @@ class TestMissingBinaryPreflight:
         monkeypatch.setattr(planet.sys, 'executable', str(fake_bin))
         monkeypatch.setattr(planet.shutil, 'which', lambda n: None)
         assert planet.require_binary('pyosmium-up-to-date') == str(script)
+
+
+class TestSameInputOutputGuard:
+    """Issue #5: `osm_planet_update planet.osm.pbf planet.osm.pbf` used to
+    run to completion and silently corrupt the planet, because both
+    toolchains read the input while writing the output."""
+
+    def _updater(self, kls, tmp_path):
+        osmpath = tmp_path / 'planet.osm.pbf'
+        osmpath.write_bytes(b'x')
+        u = kls(str(osmpath))
+        record(u)
+        u.get_timestamp = lambda: '2018-01-01T00:00:00Z'
+        return u, osmpath
+
+    @pytest.mark.parametrize('kls', [planet.PlanetUpdaterOsmium,
+                                     planet.PlanetUpdaterOsmosis])
+    def test_identical_path_raises(self, kls, tmp_path):
+        u, osmpath = self._updater(kls, tmp_path)
+        with pytest.raises(Exception, match='same file'):
+            u.update_planet(str(osmpath))
+
+    @pytest.mark.parametrize('kls', [planet.PlanetUpdaterOsmium,
+                                     planet.PlanetUpdaterOsmosis])
+    def test_same_file_via_a_different_spelling_raises(self, kls, tmp_path):
+        u, osmpath = self._updater(kls, tmp_path)
+        indirect = os.path.join(str(tmp_path), '.', 'planet.osm.pbf')
+        with pytest.raises(Exception, match='same file'):
+            u.update_planet(indirect)
+
+    def test_symlink_to_the_input_raises(self, tmp_path):
+        u, osmpath = self._updater(planet.PlanetUpdaterOsmium, tmp_path)
+        link = tmp_path / 'link.osm.pbf'
+        link.symlink_to(osmpath)
+        with pytest.raises(Exception, match='same file'):
+            u.update_planet(str(link))
+
+    @pytest.mark.parametrize('kls', [planet.PlanetUpdaterOsmium,
+                                     planet.PlanetUpdaterOsmosis])
+    def test_a_different_path_is_allowed(self, kls, tmp_path):
+        u, _osmpath = self._updater(kls, tmp_path)
+        u.update_planet(str(tmp_path / 'planet-new.osm.pbf'))
+
+    def test_overwriting_an_existing_different_file_is_allowed(self, tmp_path):
+        """Writing over a previous run's output is normal."""
+        u, _osmpath = self._updater(planet.PlanetUpdaterOsmium, tmp_path)
+        out = tmp_path / 'planet-new.osm.pbf'
+        out.write_bytes(b'old output')
+        u.update_planet(str(out))
+
+    @pytest.mark.parametrize('kls', [planet.PlanetUpdaterOsmium,
+                                     planet.PlanetUpdaterOsmosis])
+    def test_missing_input_still_raises(self, kls, tmp_path):
+        u = kls(str(tmp_path / 'nope.osm.pbf'))
+        record(u)
+        with pytest.raises(Exception, match='does not exist'):
+            u.update_planet(str(tmp_path / 'out.osm.pbf'))
