@@ -10,6 +10,24 @@ from .planet import (
 )
 
 
+def select_ids(bboxes, ids, parser):
+    """Keep only the named extents, failing on any name not in the file.
+
+    A misspelled id must not quietly cut nothing: against a planet, that is
+    an hour of work with no output.
+    """
+    # GeoJSON features without an id are keyed by position, so compare as
+    # strings.
+    by_name = {str(name): name for name in bboxes}
+    wanted = [i.strip() for i in ids.split(',') if i.strip()]
+    if not wanted:
+        parser.error('--ids is empty')
+    unknown = [i for i in wanted if i not in by_name]
+    if unknown:
+        parser.error('--ids not found in the extents file: %s' % ', '.join(unknown))
+    return {by_name[i]: bboxes[by_name[i]] for i in wanted}
+
+
 @handle_missing_binary
 def main():
     parser = argparse.ArgumentParser()
@@ -20,6 +38,7 @@ def main():
     parser.add_argument('--poly', help='Path to Osmosis .poly file.')
     parser.add_argument('--name', help='Name to give to extract file.')
     parser.add_argument('--bbox', help='Bounding box for extract file. Format for coordinates: left,bottom,right,top')
+    parser.add_argument('--ids', help='Comma-separated extract names to cut from the --csv, --geojson or --poly file; default is every extent in the file')
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
     parser.add_argument('--toolchain', help='OSM toolchain', default='osmosis')
     parser.add_argument('--strategy', help='Osmium extract strategy: simple, complete_ways, or smart', default='complete_ways')
@@ -49,6 +68,9 @@ def main():
         bboxes[args.name] = bbox.load_feature_string(args.bbox)
     else:
         parser.error('must specify --csv, --geojson, --poly, or --bbox and --name')
+
+    if args.ids:
+        bboxes = select_ids(bboxes, args.ids, parser)
 
     if args.commands:
         commands = p.extract_commands(bboxes, outpath=args.outpath, strategy=args.strategy)
