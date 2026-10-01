@@ -21,6 +21,7 @@ from planetutils.osm_extract_downloader import (
 )
 
 PBF = b'not really a pbf'
+INTERLINE_URL = InterlineExtractDownloader.HOST + '/osm_extracts/download_latest'
 TASK = '2637da98-20a1-428f-b6db-18ac2861b763'
 
 
@@ -40,7 +41,7 @@ class TestInterline:
 
     @responses.activate
     def test_download(self, tmp_path):
-        responses.add(responses.GET, InterlineExtractDownloader.HOST + '/osm_extracts/download_latest', body=PBF)
+        responses.add(responses.GET, INTERLINE_URL, body=PBF)
         out = tmp_path / 'us-ca.osm.pbf'
         InterlineExtractDownloader().download('us-ca', str(out), api_token='t')
         assert out.read_bytes() == PBF
@@ -48,13 +49,13 @@ class TestInterline:
 
     @responses.activate
     def test_forbidden_explains_the_token(self, tmp_path):
-        responses.add(responses.GET, InterlineExtractDownloader.HOST + '/osm_extracts/download_latest', status=403)
+        responses.add(responses.GET, INTERLINE_URL, status=403)
         with pytest.raises(ExtractDownloadError, match='API token'):
             InterlineExtractDownloader().download('us-ca', str(tmp_path / 'x'), api_token='SECRET')
 
     @responses.activate
     def test_gone_shows_the_servers_explanation(self, tmp_path):
-        responses.add(responses.GET, InterlineExtractDownloader.HOST + '/osm_extracts/download_latest', status=410,
+        responses.add(responses.GET, INTERLINE_URL, status=410,
                       json={'errors': [{'detail': 'no longer publishes berlin_germany'}]})
         with pytest.raises(ExtractDownloadError) as e:
             InterlineExtractDownloader().download('berlin_germany', str(tmp_path / 'x'), api_token='SECRET')
@@ -72,6 +73,11 @@ INDEX = {'features': [
     {'properties': {'id': 'no-pbf', 'name': 'Nothing', 'urls': {}}},
 ]}
 BERLIN = INDEX['features'][1]['properties']['urls']['pbf']
+
+
+def serve_berlin(index, **md5_response):
+    index.add(responses.GET, BERLIN + '.md5', **md5_response)
+    index.add(responses.GET, BERLIN, body=PBF)
 
 
 class TestGeofabrik:
@@ -97,24 +103,20 @@ class TestGeofabrik:
         assert GeofabrikDownloader.name('georgia') == 'georgia'
 
     def test_download_verifies_the_checksum(self, index, tmp_path):
-        index.add(responses.GET, BERLIN + '.md5',
-                  body='%s  berlin-latest.osm.pbf\n' % hashlib.md5(PBF).hexdigest())
-        index.add(responses.GET, BERLIN, body=PBF)
+        serve_berlin(index, body='%s  berlin-latest.osm.pbf\n' % hashlib.md5(PBF).hexdigest())
         out = tmp_path / 'berlin.osm.pbf'
         GeofabrikDownloader().download('berlin', str(out))
         assert out.read_bytes() == PBF
 
     def test_checksum_mismatch_removes_the_file(self, index, tmp_path):
-        index.add(responses.GET, BERLIN + '.md5', body='0' * 32 + '  berlin-latest.osm.pbf\n')
-        index.add(responses.GET, BERLIN, body=PBF)
+        serve_berlin(index, body='0' * 32 + '  berlin-latest.osm.pbf\n')
         out = tmp_path / 'berlin.osm.pbf'
         with pytest.raises(ExtractDownloadError, match='checksum mismatch'):
             GeofabrikDownloader().download('berlin', str(out))
         assert not out.exists()
 
     def test_checksum_mismatch_keeps_the_existing_file(self, index, tmp_path):
-        index.add(responses.GET, BERLIN + '.md5', body='0' * 32 + '  berlin-latest.osm.pbf\n')
-        index.add(responses.GET, BERLIN, body=PBF)
+        serve_berlin(index, body='0' * 32 + '  berlin-latest.osm.pbf\n')
         out = tmp_path / 'berlin.osm.pbf'
         out.write_bytes(b'the good copy')
         with pytest.raises(ExtractDownloadError, match='checksum mismatch'):
@@ -123,16 +125,14 @@ class TestGeofabrik:
         assert os.listdir(tmp_path) == ['berlin.osm.pbf']
 
     def test_checksum_fetch_failure_still_downloads(self, index, tmp_path, caplog):
-        index.add(responses.GET, BERLIN + '.md5', body=requests.ConnectionError('reset'))
-        index.add(responses.GET, BERLIN, body=PBF)
+        serve_berlin(index, body=requests.ConnectionError('reset'))
         out = tmp_path / 'berlin.osm.pbf'
         GeofabrikDownloader().download('berlin', str(out))
         assert out.read_bytes() == PBF
         assert 'skipping verification' in caplog.text
 
     def test_missing_checksum_still_downloads(self, index, tmp_path, caplog):
-        index.add(responses.GET, BERLIN + '.md5', status=404)
-        index.add(responses.GET, BERLIN, body=PBF)
+        serve_berlin(index, status=404)
         out = tmp_path / 'berlin.osm.pbf'
         GeofabrikDownloader().download('berlin', str(out))
         assert out.read_bytes() == PBF
@@ -207,14 +207,6 @@ class TestSliceOsm:
         with pytest.raises(ExtractDownloadError, match='returned HTTP 502'):
             slice_downloader().wait(TASK, timeout=40)
 
-    def test_public_sources_retry_but_interline_does_not(self):
-        """urllib3 logs the URL on retry, and Interline's carries the token."""
-        def retries(downloader):
-            return downloader.session.get_adapter('https://example.org').max_retries.total
-        assert retries(SliceOsmDownloader()) > 0
-        assert retries(GeofabrikDownloader()) > 0
-        assert retries(InterlineExtractDownloader()) == 0
-
     @responses.activate
     def test_full_queue(self):
         responses.add(responses.POST, SliceOsmDownloader.API_URL, status=503)
@@ -228,9 +220,18 @@ class TestSliceOsm:
             slice_downloader().submit('huge', rect(-10, -10, 10, 10))
 
 
+def test_public_sources_retry_but_interline_does_not():
+    """urllib3 logs the URL on retry, and Interline's carries the token."""
+    def retries(downloader):
+        return downloader.session.get_adapter('https://example.org').max_retries.total
+    assert retries(SliceOsmDownloader()) > 0
+    assert retries(GeofabrikDownloader()) > 0
+    assert retries(InterlineExtractDownloader()) == 0
+
+
 class TestOutputPath:
-    def test_joins_the_name(self):
-        assert output_path('out', 'us-ca') == os.path.join('out', 'us-ca.osm.pbf')
+    def test_joins_the_name(self, tmp_path):
+        assert output_path(str(tmp_path), 'us-ca') == os.path.join(str(tmp_path), 'us-ca.osm.pbf')
 
     @pytest.mark.parametrize('name', ['', '.', '..', 'berlin/mitte', '../x', '/etc/x', 'a\\b'])
     def test_rejects_names_that_leave_the_directory(self, name):
@@ -239,18 +240,33 @@ class TestOutputPath:
 
 
 class TestCli:
-    @pytest.mark.parametrize('argv', [
-        ['abidjan_ivory-coast'],
-        ['--api-token=abcd', 'abidjan_ivory-coast'],
-        ['--outpath', 'data', 'abidjan_ivory-coast'],
+    @pytest.mark.parametrize('argv,shown', [
+        (['abidjan_ivory-coast'], 'abidjan_ivory-coast'),
+        (['--outpath', 'data', 'abidjan_ivory-coast'], '--outpath data abidjan_ivory-coast'),
+        (['--api-token=SECRET', 'us-ca'], '--api-token=... us-ca'),
+        (['--api-token', 'SECRET', 'us-ca'], '--api-token ... us-ca'),
     ])
-    def test_old_syntax_explains_the_change(self, argv, capsys):
+    def test_old_syntax_explains_the_change_without_echoing_the_token(self, argv, shown, capsys):
         with pytest.raises(SystemExit) as e:
             osm_extract_download.main(argv)
         assert e.value.code == 2
         err = capsys.readouterr().err
         assert 'changed in 1.0.0' in err
-        assert 'osm_extract_download interline %s' % ' '.join(argv) in err
+        assert 'osm_extract_download interline %s' % shown in err
+        assert 'SECRET' not in err
+
+    def test_no_arguments_is_a_plain_usage_error(self, capsys):
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main([])
+        assert e.value.code == 2
+        assert 'changed in 1.0.0' not in capsys.readouterr().err
+
+    def test_errors_within_a_source_get_no_migration_hint(self, capsys):
+        with pytest.raises(SystemExit):
+            osm_extract_download.main(['sliceosm'])
+        err = capsys.readouterr().err
+        assert 'must specify' in err
+        assert 'changed in 1.0.0' not in err
 
     def test_missing_output_directory_fails_before_downloading(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setattr(InterlineExtractDownloader, 'download', lambda *a, **kw: pytest.fail('downloaded'))

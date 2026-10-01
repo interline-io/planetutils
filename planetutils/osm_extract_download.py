@@ -10,11 +10,39 @@ from .osm_extract_downloader import (
     GeofabrikDownloader,
     InterlineExtractDownloader,
     SliceOsmDownloader,
-    check_outpath,
     output_path,
 )
 
 SOURCES = ('interline', 'geofabrik', 'sliceosm')
+
+
+class SourceParser(argparse.ArgumentParser):
+    """Adds a migration hint when SOURCE is missing or not a source.
+
+    Before 1.0.0 there was no source: osm_extract_download --api-token=abcd us-ca
+    """
+    argv = None
+
+    def error(self, message):
+        if self.argv and 'SOURCE' in message:
+            message = (
+                'a source is now required: %s. The old form is now: '
+                'osm_extract_download interline %s (changed in 1.0.0)' % (
+                    ', '.join(SOURCES), ' '.join(redact_token(self.argv))))
+        super().error(message)
+
+
+def redact_token(argv):
+    redacted, hide_next = [], False
+    for arg in argv:
+        if hide_next:
+            arg, hide_next = '...', False
+        elif arg == '--api-token':
+            hide_next = True
+        elif arg.startswith('--api-token='):
+            arg = '--api-token=...'
+        redacted.append(arg)
+    return redacted
 
 
 def build_parser():
@@ -23,10 +51,11 @@ def build_parser():
     common.add_argument('--overwrite', help='Replace output files that already exist', action='store_true')
     common.add_argument('--verbose', help="Verbose output", action='store_true')
 
-    parser = argparse.ArgumentParser(
+    parser = SourceParser(
         description='Download OSM extracts in PBF format.',
         epilog='Run "osm_extract_download SOURCE -h" for help on each source.')
-    sources = parser.add_subparsers(dest='source', metavar='SOURCE', required=True)
+    sources = parser.add_subparsers(dest='source', metavar='SOURCE', required=True,
+                                    parser_class=argparse.ArgumentParser)
 
     p = sources.add_parser(
         'interline', parents=[common],
@@ -46,7 +75,7 @@ def build_parser():
         help='any area, on demand, from slice.openstreetmap.us (operated by OSM US; '
              'heavy automated use is not permitted)')
     add_extent_arguments(p, name_help='Name for the extract given by --bbox.')
-    p.add_argument('--timeout', help='Seconds to wait for each extract to be prepared', type=int, default=1800)
+    p.add_argument('--timeout', help='Seconds to wait for each extract to be prepared', type=int, default=SliceOsmDownloader.DEFAULT_TIMEOUT)
     return parser
 
 
@@ -55,21 +84,14 @@ def build_parser():
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     parser = build_parser()
-    # The pre-1.0.0 form had no source, often with flags first:
-    # osm_extract_download --api-token=abcd us-ca
-    if argv and not set(argv) & set(SOURCES) and not set(argv) & {'-h', '--help'}:
-        parser.error(
-            'a source is now required: %s. The old form is now: '
-            'osm_extract_download interline %s (changed in 1.0.0)' % (
-                ', '.join(SOURCES), ' '.join(argv)))
+    parser.argv = argv
     args = parser.parse_args(argv)
 
     if args.verbose:
         log.set_verbose()
 
     if args.source == 'interline':
-        outpath = output_path(args.outpath, args.id)
-        check_outpath(outpath, args.overwrite)
+        outpath = output_path(args.outpath, args.id, args.overwrite)
         InterlineExtractDownloader().download(
             args.id, outpath, api_token=args.api_token or os.getenv('INTERLINE_API_TOKEN'))
 
@@ -81,8 +103,7 @@ def main(argv=None):
             return
         if not args.id:
             parser.error('geofabrik needs a region ID, or --list or --search to find one')
-        outpath = output_path(args.outpath, downloader.name(args.id))
-        check_outpath(outpath, args.overwrite)
+        outpath = output_path(args.outpath, downloader.name(args.id), args.overwrite)
         downloader.download(args.id, outpath)
 
     elif args.source == 'sliceosm':
@@ -93,10 +114,8 @@ def main(argv=None):
                 'automated use of SliceOSM is not permitted. For many areas, '
                 'download a planet or Geofabrik region and cut it with '
                 'osm_planet_extract.' % (len(extents), SliceOsmDownloader.MAX_EXTENTS))
-        outpaths = {name: output_path(args.outpath, name) for name in extents}
         # Check every output before submitting any work to SliceOSM.
-        for outpath in outpaths.values():
-            check_outpath(outpath, args.overwrite)
+        outpaths = {name: output_path(args.outpath, name, args.overwrite) for name in extents}
         downloader = SliceOsmDownloader()
         for name, feature in extents.items():
             downloader.download(name, feature, outpaths[name], timeout=args.timeout)
