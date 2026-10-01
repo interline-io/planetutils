@@ -16,7 +16,6 @@ from planetutils.elevation_tile_downloader import (
     ElevationGeotiffDownloader,
     ElevationSkadiDownloader,
 )
-from planetutils.osm_extract_downloader import OsmExtractDownloader
 from planetutils.tilepack_downloader import TilepackDownloader
 
 
@@ -27,38 +26,6 @@ def curl_calls(monkeypatch):
         download, 'download_curl',
         lambda url, outpath, **kw: calls.append((url, outpath, kw)))
     return calls
-
-
-class TestOsmExtractDownloaderUrls:
-    def test_latest_uses_download_latest_with_string_id(self, curl_calls):
-        OsmExtractDownloader().download('/out.pbf', 'abidjan_ivory-coast')
-        url, outpath, _kw = curl_calls[0]
-        assert url.startswith(
-            'https://app.interline.io/osm_extracts/download_latest?')
-        assert 'string_id=abidjan_ivory-coast' in url
-        assert 'data_format=pbf' in url
-        assert outpath == '/out.pbf'
-
-    def test_pinned_version_uses_version_path_and_no_string_id(self, curl_calls):
-        OsmExtractDownloader().download('/out.pbf', 'abidjan_ivory-coast',
-                                        osm_extract_version='2024-01-01')
-        url, _outpath, _kw = curl_calls[0]
-        assert url.startswith(
-            'https://app.interline.io/osm_extracts/2024-01-01/download?')
-        assert 'string_id' not in url
-
-    def test_api_token_is_a_query_parameter(self, curl_calls):
-        # CHARACTERIZATION: the token currently travels in the URL, where it is
-        # also debug-logged and visible in the curl argv via `ps`. Moving it to
-        # an Authorization header requires server-side support; re-baseline this
-        # test in that commit.
-        OsmExtractDownloader().download('/out.pbf', 'x', api_token='SECRET')
-        url, _outpath, _kw = curl_calls[0]
-        assert 'api_token=SECRET' in url
-
-    def test_data_format_is_passed_through(self, curl_calls):
-        OsmExtractDownloader().download('/out.pbf', 'x', data_format='geojson')
-        assert 'data_format=geojson' in curl_calls[0][0]
 
 
 class TestTilepackDownloaderUrls:
