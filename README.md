@@ -193,6 +193,13 @@ To specify more than one bounding box of tiles to download, list the extents in 
 osm_planet_extract --outpath=data/osm_extracts --csv=data/bboxes.csv planet-latest.osm.pbf
 ```
 
+To cut only some of the extents in a file, name them with `--ids`. An unknown name is an error, so a typo does not silently produce nothing. For example, to cut the same regions that [OSM Extracts by Interline](https://github.com/interline-io/osm-extracts) published, from its list of cities and regions:
+
+```sh
+curl -LO https://raw.githubusercontent.com/interline-io/osm-extracts/master/cities.json
+osm_planet_extract --toolchain=osmium --geojson=cities.json --ids=us-ca,berlin_germany --outpath=data/osm_extracts planet-latest.osm.pbf
+```
+
 For complete help on command-line arguments:
 
 ```sh
