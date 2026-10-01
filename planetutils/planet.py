@@ -16,12 +16,14 @@ try:
 except ImportError:
     boto3 = None
 
-# osm_planet_extract is the one command that still needs a system binary:
-# a correct bbox extract requires reference completion (osmium's
-# complete_ways/smart strategies), which pyosmium does not expose.
+# osm_planet_extract and osm_extract_convert still need a system binary: a
+# correct bbox extract requires reference completion (osmium's
+# complete_ways/smart strategies), which pyosmium does not expose, and
+# osmium export assembles multipolygon areas for GeoJSON output.
 INSTALL_HINTS = {
     'osmium': (
-        'osmium-tool is required for --toolchain=osmium.\n'
+        'osmium-tool is required for --toolchain=osmium and for '
+        'osm_extract_convert.\n'
         '  macOS:          brew install osmium-tool\n'
         '  Debian/Ubuntu:  apt install osmium-tool\n'
         '  Windows:        conda install conda-forge::osmium-tool\n'
@@ -281,6 +283,80 @@ class PlanetExtractorOsmium(PlanetExtractor):
             # clean up, including when osmium fails.
             if not self.keep_config:
                 os.unlink(path)
+
+# Output formats for osm_extract_convert, as (osmium export format, file
+# extension). These match what OSM Extracts by Interline published.
+EXPORT_FORMATS = {
+    'geojson': ('geojson', 'geojson'),
+    'geojsonl': ('geojsonseq', 'geojsonl'),
+}
+
+# Feature properties added alongside the OSM tags. OSM Extracts used this
+# exact config, so converted files have the same properties it published.
+EXPORT_CONFIG = {
+    'attributes': {
+        'type': True,
+        'id': True,
+        'timestamp': True,
+    },
+}
+
+def export_output_path(osmpath, data_format, outpath='.'):
+    """Name the converted file after the input: berlin.osm.pbf -> berlin.geojson."""
+    name = os.path.basename(osmpath)
+    for suffix in ('.osm.pbf', '.pbf'):
+        if name.endswith(suffix):
+            name = name[:-len(suffix)]
+            break
+    else:
+        name = os.path.splitext(name)[0]
+    return os.path.join(outpath, '%s.%s' % (name, EXPORT_FORMATS[data_format][1]))
+
+class ExtractConverterOsmium(PlanetBase):
+    def convert(self, data_format='geojson', outpath='.', overwrite=False):
+        if data_format not in EXPORT_FORMATS:
+            raise ValueError('unknown format: %s' % data_format)
+        osmium_format = EXPORT_FORMATS[data_format][0]
+        output = export_output_path(self.osmpath, data_format, outpath=outpath)
+        # osmium would refuse too, but as a CalledProcessError traceback.
+        # Printed commands are not run, so they need no check.
+        if os.path.exists(output) and not overwrite and not self.keep_config:
+            raise PlanetPathError(
+                'output file exists: %s\nUse --overwrite to replace it.' % output)
+        with tempfile.NamedTemporaryFile(mode='w', delete=False,
+                                         suffix='.json',
+                                         encoding='utf-8') as f:
+            json.dump(EXPORT_CONFIG, f)
+            path = f.name
+        args = ['osmium', 'export', '-c', path, '-u', 'type_id',
+                '-f', osmium_format, '-o', output]
+        if osmium_format == 'geojsonseq':
+            # One feature per line, with no RFC 8142 record separator, so
+            # the output is plain newline-delimited JSON.
+            args += ['--format-option=print_record_separator=false']
+        if overwrite:
+            args += ['--overwrite']
+        args += [self.osmpath]
+        try:
+            self.command(args)
+        finally:
+            # As with extracts: keep the config when the command is only
+            # being printed.
+            if not self.keep_config:
+                os.unlink(path)
+        return output
+
+    def convert_commands(self, data_format='geojson', outpath='.', overwrite=False):
+        args = []
+        self.command = lambda x: args.append(x)
+        self.keep_config = True
+        try:
+            self.convert(data_format=data_format, outpath=outpath,
+                         overwrite=overwrite)
+        finally:
+            del self.command
+            self.keep_config = False
+        return args
 
 class PlanetDownloader(PlanetBase):
     def download_planet(self):

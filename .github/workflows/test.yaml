@@ -41,7 +41,7 @@ jobs:
           enable-cache: true
 
       - name: Install the OSM toolchain (Linux only)
-        # osm_planet_extract still needs these. Installing them on one OS
+        # osm_planet_extract and osm_extract_convert still need these. Installing them on one OS
         # means the binary-backed tests actually execute somewhere; they
         # skip on macOS and Windows.
         if: runner.os == 'Linux'
@@ -76,7 +76,7 @@ jobs:
           python -m venv /tmp/plain
           /tmp/plain/bin/pip install --quiet dist/*.whl
           for cmd in osm_planet_update osm_planet_extract osm_planet_get_timestamp \
-                     osm_extract_download elevation_tile_download elevation_tile_merge \
+                     osm_extract_download osm_extract_convert elevation_tile_download elevation_tile_merge \
                      valhalla_tilepack_download valhalla_tilepack_list; do
             /tmp/plain/bin/$cmd --help > /dev/null || { echo "FAILED: $cmd"; exit 1; }
           done
@@ -98,7 +98,7 @@ jobs:
         run: |
           uv tool install "interline-planetutils @ git+${{ github.server_url }}/${{ github.repository }}@${{ github.sha }}"
           for cmd in osm_planet_update osm_planet_extract osm_planet_get_timestamp \
-                     osm_extract_download elevation_tile_download elevation_tile_merge \
+                     osm_extract_download osm_extract_convert elevation_tile_download elevation_tile_merge \
                      valhalla_tilepack_download valhalla_tilepack_list; do
             $cmd --help > /dev/null || { echo "FAILED: $cmd"; exit 1; }
           done

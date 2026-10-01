@@ -19,8 +19,8 @@ def console_scripts():
 SCRIPTS = console_scripts()
 
 
-def test_pyproject_declares_all_eight_commands():
-    assert len(SCRIPTS) == 8
+def test_pyproject_declares_all_nine_commands():
+    assert len(SCRIPTS) == 9
 
 
 @pytest.mark.parametrize('name,target', sorted(SCRIPTS.items()))
