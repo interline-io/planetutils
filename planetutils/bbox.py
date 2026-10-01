@@ -44,11 +44,14 @@ class Feature:
     def is_rectangle(self):
         """Whether this extent is exactly its bounding box.
 
-        Polygons and multipolygons must be cut along their boundary unless
-        they are an axis-aligned rectangle. Counting distinct coordinates is
-        not enough: a right triangle such as (0,0) (1,0) (0,1) has only two
-        of each. Any other geometry -- the LineString that set_bbox() builds,
-        a Point -- stands for its bounding box.
+        A Polygon is a rectangle only if it is axis-aligned: one ring with
+        exactly the four corners of its bounding box, and no holes. Counting
+        distinct coordinates is not enough: a right triangle such as (0,0)
+        (1,0) (0,1) has only two of each. A MultiPolygon is never a
+        rectangle, even when it holds a single axis-aligned one; it is
+        always cut along its boundary, which gives the same result. Any
+        other geometry -- the LineString that set_bbox() builds, a Point --
+        stands for its bounding box.
         """
         gtype = self.geometry.get('type')
         if gtype == 'MultiPolygon':
