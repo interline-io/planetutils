@@ -69,7 +69,7 @@ def main():
     else:
         parser.error('must specify --csv, --geojson, --poly, or --bbox and --name')
 
-    if args.ids:
+    if args.ids is not None:
         bboxes = select_ids(bboxes, args.ids, parser)
 
     if args.commands:

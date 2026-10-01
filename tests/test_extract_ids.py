@@ -68,3 +68,10 @@ def test_empty_ids_fails(monkeypatch, capsys):
         run(monkeypatch, '--geojson=%s' % TEST_GEOJSON, '--ids=,')
     assert e.value.code == 2
     assert '--ids is empty' in capsys.readouterr().err
+
+
+def test_blank_ids_fails_rather_than_cutting_everything(monkeypatch, capsys):
+    with pytest.raises(SystemExit) as e:
+        run(monkeypatch, '--geojson=%s' % TEST_GEOJSON, '--ids=')
+    assert e.value.code == 2
+    assert '--ids is empty' in capsys.readouterr().err
