@@ -1,0 +1,415 @@
+"""Tests for osm_extract_download and its Interline, Geofabrik and SliceOSM
+sources. Nothing here touches the network."""
+import hashlib
+import json
+import os
+from urllib.parse import parse_qs, urlsplit
+
+import pytest
+import requests
+import responses
+
+from planetutils import osm_extract_download
+from planetutils.bbox import Feature
+from planetutils.osm_extract_downloader import (
+    ExtractDownloadError,
+    GeofabrikDownloader,
+    InterlineExtractDownloader,
+    SliceOsmDownloader,
+    output_path,
+    user_agent,
+)
+
+PBF = b'not really a pbf'
+INTERLINE_URL = InterlineExtractDownloader.HOST + '/osm_extracts/download_latest'
+TASK = '2637da98-20a1-428f-b6db-18ac2861b763'
+
+
+def rect(left, bottom, right, top):
+    f = Feature()
+    f.set_bbox([left, bottom, right, top])
+    return f
+
+
+class TestInterline:
+    def test_url_asks_for_the_latest_pbf(self):
+        url = InterlineExtractDownloader().url('us-ca', api_token='SECRET')
+        parts = urlsplit(url)
+        assert parts.path == '/osm_extracts/download_latest'
+        assert parse_qs(parts.query) == {
+            'string_id': ['us-ca'], 'data_format': ['pbf'], 'api_token': ['SECRET']}
+
+    @responses.activate
+    def test_download(self, tmp_path):
+        responses.add(responses.GET, INTERLINE_URL, body=PBF)
+        out = tmp_path / 'us-ca.osm.pbf'
+        InterlineExtractDownloader().download('us-ca', str(out), api_token='t')
+        assert out.read_bytes() == PBF
+        assert responses.calls[0].request.headers['User-Agent'] == user_agent()
+
+    @responses.activate
+    def test_forbidden_explains_the_token(self, tmp_path):
+        responses.add(responses.GET, INTERLINE_URL, status=403)
+        with pytest.raises(ExtractDownloadError, match='API token'):
+            InterlineExtractDownloader().download('us-ca', str(tmp_path / 'x'), api_token='SECRET')
+
+    @responses.activate
+    def test_gone_shows_the_servers_explanation(self, tmp_path):
+        responses.add(responses.GET, INTERLINE_URL, status=410,
+                      json={'errors': [{'detail': 'no longer publishes berlin_germany'}]})
+        with pytest.raises(ExtractDownloadError) as e:
+            InterlineExtractDownloader().download('berlin_germany', str(tmp_path / 'x'), api_token='SECRET')
+        assert 'HTTP 410' in str(e.value)
+        assert 'no longer publishes berlin_germany' in str(e.value)
+        assert 'SECRET' not in str(e.value)
+        assert not (tmp_path / 'x').exists()
+
+
+INDEX = {'features': [
+    {'properties': {'id': 'us/california', 'name': 'California',
+                    'urls': {'pbf': 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf'}}},
+    {'properties': {'id': 'berlin', 'name': 'Berlin',
+                    'urls': {'pbf': 'https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf'}}},
+    {'properties': {'id': 'no-pbf', 'name': 'Nothing', 'urls': {}}},
+]}
+BERLIN = INDEX['features'][1]['properties']['urls']['pbf']
+
+
+def serve_berlin(index, **md5_response):
+    index.add(responses.GET, BERLIN + '.md5', **md5_response)
+    index.add(responses.GET, BERLIN, body=PBF)
+
+
+class TestGeofabrik:
+    @pytest.fixture(autouse=True)
+    def index(self):
+        with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+            rsps.add(responses.GET, GeofabrikDownloader.INDEX_URL, json=INDEX)
+            yield rsps
+
+    def test_search_matches_id_or_name_and_skips_regions_without_a_pbf(self):
+        g = GeofabrikDownloader()
+        assert [i['id'] for i in g.search()] == ['berlin', 'us/california']
+        assert [i['id'] for i in g.search('CALIF')] == ['us/california']
+        assert [i['id'] for i in g.search('berl')] == ['berlin']
+
+    def test_unknown_region(self):
+        with pytest.raises(ExtractDownloadError, match='--search'):
+            GeofabrikDownloader().find('california')
+
+    def test_name_keeps_the_whole_nested_id(self):
+        """georgia is the country and us/georgia the state."""
+        assert GeofabrikDownloader.name('us/georgia') == 'us-georgia'
+        assert GeofabrikDownloader.name('georgia') == 'georgia'
+
+    def test_download_verifies_the_checksum(self, index, tmp_path):
+        serve_berlin(index, body='%s  berlin-latest.osm.pbf\n' % hashlib.md5(PBF).hexdigest())
+        out = tmp_path / 'berlin.osm.pbf'
+        GeofabrikDownloader().download('berlin', str(out))
+        assert out.read_bytes() == PBF
+
+    def test_checksum_mismatch_removes_the_file(self, index, tmp_path):
+        serve_berlin(index, body='0' * 32 + '  berlin-latest.osm.pbf\n')
+        out = tmp_path / 'berlin.osm.pbf'
+        with pytest.raises(ExtractDownloadError, match='checksum mismatch'):
+            GeofabrikDownloader().download('berlin', str(out))
+        assert not out.exists()
+
+    def test_checksum_mismatch_keeps_the_existing_file(self, index, tmp_path):
+        serve_berlin(index, body='0' * 32 + '  berlin-latest.osm.pbf\n')
+        out = tmp_path / 'berlin.osm.pbf'
+        out.write_bytes(b'the good copy')
+        with pytest.raises(ExtractDownloadError, match='checksum mismatch'):
+            GeofabrikDownloader().download('berlin', str(out))
+        assert out.read_bytes() == b'the good copy'
+        assert os.listdir(tmp_path) == ['berlin.osm.pbf']
+
+    def test_checksum_fetch_failure_still_downloads(self, index, tmp_path, caplog):
+        serve_berlin(index, body=requests.ConnectionError('reset'))
+        out = tmp_path / 'berlin.osm.pbf'
+        GeofabrikDownloader().download('berlin', str(out))
+        assert out.read_bytes() == PBF
+        assert 'skipping verification' in caplog.text
+
+    def test_missing_checksum_still_downloads(self, index, tmp_path, caplog):
+        serve_berlin(index, status=404)
+        out = tmp_path / 'berlin.osm.pbf'
+        GeofabrikDownloader().download('berlin', str(out))
+        assert out.read_bytes() == PBF
+        assert 'skipping verification' in caplog.text
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+        self.sleeps = []
+
+    def __call__(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def slice_downloader(clock=None):
+    clock = clock or FakeClock()
+    return SliceOsmDownloader(sleep=clock.sleep, clock=clock)
+
+
+class TestSliceOsm:
+    def test_rectangle_is_sent_latitude_first(self):
+        assert SliceOsmDownloader.region(rect(-122.41, 37.79, -122.40, 37.795)) == (
+            'bbox', [37.79, -122.41, 37.795, -122.40])
+
+    def test_right_triangle_is_not_mistaken_for_a_rectangle(self):
+        """is_rectangle() only counts distinct coordinates."""
+        geometry = {'type': 'Polygon', 'coordinates': [[[0, 0], [1, 0], [0, 1], [0, 0]]]}
+        assert SliceOsmDownloader.region(Feature(geometry=geometry)) == ('geojson', geometry)
+
+    def test_polygon_is_sent_as_geojson(self):
+        geometry = {'type': 'Polygon', 'coordinates': [[[0, 0], [2, 0], [1, 2], [0, 0]]]}
+        assert SliceOsmDownloader.region(Feature(geometry=geometry)) == ('geojson', geometry)
+
+    @responses.activate
+    def test_download_submits_polls_and_fetches(self, tmp_path):
+        responses.add(responses.POST, SliceOsmDownloader.API_URL, body=TASK, status=201)
+        responses.add(responses.GET, SliceOsmDownloader.API_URL + TASK, json={'Complete': False})
+        responses.add(responses.GET, SliceOsmDownloader.API_URL + TASK, json={'Complete': True})
+        responses.add(responses.GET, SliceOsmDownloader.FILES_URL + TASK + '.osm.pbf', body=PBF)
+        clock = FakeClock()
+        out = tmp_path / 'sf.osm.pbf'
+        slice_downloader(clock).download('sf', rect(-122.41, 37.79, -122.40, 37.795), str(out))
+        assert out.read_bytes() == PBF
+        assert json.loads(responses.calls[0].request.body) == {
+            'Name': 'sf', 'RegionType': 'bbox', 'RegionData': [37.79, -122.41, 37.795, -122.40]}
+        assert responses.calls[0].request.headers['User-Agent'] == user_agent()
+        assert clock.sleeps == [2]
+
+    @responses.activate
+    def test_polling_backs_off_to_30_seconds(self):
+        responses.add(responses.GET, SliceOsmDownloader.API_URL + TASK, json={'Complete': False})
+        clock = FakeClock()
+        with pytest.raises(ExtractDownloadError, match='24 hours'):
+            slice_downloader(clock).wait(TASK, timeout=300)
+        assert clock.sleeps[:3] == [2, 3, 4.5]
+        assert max(clock.sleeps) == 30
+        assert clock.now <= 300
+
+    @responses.activate
+    def test_timeout_polls_until_the_deadline(self):
+        responses.add(responses.GET, SliceOsmDownloader.API_URL + TASK, json={'Complete': False})
+        clock = FakeClock()
+        with pytest.raises(ExtractDownloadError, match='may have failed'):
+            slice_downloader(clock).wait(TASK, timeout=40)
+        assert clock.now == 40
+        # The last poll happens at the deadline, not up to an interval before it.
+        assert len(responses.calls) == len(clock.sleeps) + 1
+
+    @responses.activate
+    def test_a_server_error_while_polling_is_not_reported_as_a_missing_task(self):
+        responses.add(responses.GET, SliceOsmDownloader.API_URL + TASK, status=502)
+        with pytest.raises(ExtractDownloadError, match='returned HTTP 502'):
+            slice_downloader().wait(TASK, timeout=40)
+
+    @responses.activate
+    def test_full_queue(self):
+        responses.add(responses.POST, SliceOsmDownloader.API_URL, status=503)
+        with pytest.raises(ExtractDownloadError, match='queue is full'):
+            slice_downloader().submit('sf', rect(0, 0, 1, 1))
+
+    @responses.activate
+    def test_rejected_submission(self):
+        responses.add(responses.POST, SliceOsmDownloader.API_URL, body='', status=400)
+        with pytest.raises(ExtractDownloadError, match='HTTP 400'):
+            slice_downloader().submit('huge', rect(-10, -10, 10, 10))
+
+
+def test_a_download_interrupted_mid_body_is_a_clean_error(tmp_path):
+    """urllib3 raises ProtocolError, not a RequestException, when the
+    connection drops after the headers."""
+    import socket
+    import threading
+    srv = socket.socket()
+    srv.bind(('127.0.0.1', 0))
+    srv.listen(1)
+
+    def serve():
+        conn, _ = srv.accept()
+        conn.recv(65536)
+        conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 100000\r\n\r\n' + b'x' * 1000)
+        conn.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    out = tmp_path / 'x.osm.pbf'
+    d = SliceOsmDownloader()
+    r = d._get_large('http://127.0.0.1:%d/x' % srv.getsockname()[1], 'x')
+    with pytest.raises(ExtractDownloadError, match='interrupted'):
+        d._save(r, str(out))
+    srv.close()
+    assert os.listdir(tmp_path) == []
+
+
+def test_public_sources_retry_but_interline_does_not():
+    """urllib3 logs the URL on retry, and Interline's carries the token."""
+    def retries(downloader):
+        return downloader.session.get_adapter('https://example.org').max_retries.total
+    assert retries(SliceOsmDownloader()) > 0
+    assert retries(GeofabrikDownloader()) > 0
+    assert retries(InterlineExtractDownloader()) == 0
+
+
+class TestOutputPath:
+    def test_joins_the_name(self, tmp_path):
+        assert output_path(str(tmp_path), 'us-ca') == os.path.join(str(tmp_path), 'us-ca.osm.pbf')
+
+    @pytest.mark.parametrize('name', ['', '.', '..', 'berlin/mitte', '../x', '/etc/x', 'a\\b'])
+    def test_rejects_names_that_leave_the_directory(self, name):
+        with pytest.raises(ExtractDownloadError, match='path separators'):
+            output_path('out', name)
+
+
+class TestCli:
+    @pytest.mark.parametrize('argv,shown', [
+        (['abidjan_ivory-coast'], 'abidjan_ivory-coast'),
+        (['--outpath', 'data', 'abidjan_ivory-coast'], '--outpath data abidjan_ivory-coast'),
+        (['--api-token=SECRET', 'us-ca'], '--api-token=... us-ca'),
+        (['--api-token', 'SECRET', 'us-ca'], '--api-token ... us-ca'),
+        (['--api-t=SECRET', 'us-ca'], '--api-t=... us-ca'),
+        (['--api', 'SECRET', 'us-ca'], '--api ... us-ca'),
+    ])
+    def test_old_syntax_explains_the_change_without_echoing_the_token(self, argv, shown, capsys):
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(argv)
+        assert e.value.code == 2
+        err = capsys.readouterr().err
+        assert 'changed in 1.0.0' in err
+        assert 'osm_extract_download interline %s' % shown in err
+        assert 'SECRET' not in err
+
+    def test_no_arguments_is_a_plain_usage_error(self, capsys):
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main([])
+        assert e.value.code == 2
+        assert 'changed in 1.0.0' not in capsys.readouterr().err
+
+    def test_errors_within_a_source_get_no_migration_hint(self, capsys):
+        with pytest.raises(SystemExit):
+            osm_extract_download.main(['sliceosm'])
+        err = capsys.readouterr().err
+        assert 'must specify' in err
+        assert 'changed in 1.0.0' not in err
+
+    def test_missing_output_directory_fails_before_downloading(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setattr(InterlineExtractDownloader, 'download', lambda *a, **kw: pytest.fail('downloaded'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['interline', 'us-ca', '--outpath=%s' % (tmp_path / 'nope')])
+        assert e.value.code == 1
+        assert 'output directory does not exist' in capsys.readouterr().err
+
+    def test_geofabrik_names_the_file_after_the_whole_id(self, monkeypatch, tmp_path):
+        seen = []
+        monkeypatch.setattr(GeofabrikDownloader, 'download', lambda self, i, outpath: seen.append(outpath))
+        osm_extract_download.main(['geofabrik', 'us/georgia', '--outpath=%s' % tmp_path])
+        assert seen == [os.path.join(str(tmp_path), 'us-georgia.osm.pbf')]
+
+    def test_sliceosm_rejects_a_name_with_a_separator_before_submitting(self, tmp_path, capsys, monkeypatch):
+        geojson = tmp_path / 'x.geojson'
+        geojson.write_text(json.dumps({'type': 'FeatureCollection', 'features': [
+            {'type': 'Feature', 'properties': {'id': 'berlin/mitte'},
+             'geometry': {'type': 'Point', 'coordinates': [13.4, 52.5]}}]}))
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--geojson=%s' % geojson, '--outpath=%s' % tmp_path])
+        assert e.value.code == 1
+        assert 'path separators' in capsys.readouterr().err
+
+    def test_filesystem_errors_are_reported_cleanly(self, tmp_path, capsys, monkeypatch):
+        def fail(*a, **kw):
+            raise PermissionError(13, 'Permission denied', str(tmp_path / 'us-ca.osm.pbf.part'))
+        monkeypatch.setattr(InterlineExtractDownloader, 'download', fail)
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['interline', 'us-ca', '--outpath=%s' % tmp_path])
+        assert e.value.code == 1
+        assert capsys.readouterr().err.startswith('error: [Errno 13] Permission denied')
+
+    def test_interline_names_the_file_after_the_id(self, monkeypatch, tmp_path):
+        seen = []
+        monkeypatch.setenv('INTERLINE_API_TOKEN', 'from-env')
+        monkeypatch.setattr(InterlineExtractDownloader, 'download',
+                            lambda self, *a, **kw: seen.append((a, kw)))
+        osm_extract_download.main(['interline', 'us-ca', '--outpath=%s' % tmp_path])
+        assert seen == [((('us-ca', os.path.join(str(tmp_path), 'us-ca.osm.pbf'))), {'api_token': 'from-env'})]
+
+    def test_existing_output_needs_overwrite(self, tmp_path, capsys):
+        (tmp_path / 'us-ca.osm.pbf').write_bytes(b'')
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['interline', 'us-ca', '--outpath=%s' % tmp_path])
+        assert e.value.code == 1
+        assert '--overwrite' in capsys.readouterr().err
+
+    def test_geofabrik_needs_an_id_or_a_search(self, capsys):
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['geofabrik'])
+        assert e.value.code == 2
+
+    def test_geofabrik_search_prints_ids(self, monkeypatch, capsys):
+        monkeypatch.setattr(GeofabrikDownloader, 'search',
+                            lambda self, q: [{'id': 'us/california', 'name': 'California'}])
+        osm_extract_download.main(['geofabrik', '--search=calif'])
+        assert capsys.readouterr().out == 'us/california\tCalifornia\n'
+
+    def test_sliceosm_takes_one_area_per_run(self, tmp_path, capsys, monkeypatch):
+        csv = tmp_path / 'two.csv'
+        csv.write_text('a,0,0,1,1\nb,0,0,1,1\n')
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--csv=%s' % csv, '--outpath=%s' % tmp_path])
+        assert e.value.code == 2
+        err = capsys.readouterr().err
+        assert 'one area per run, and 2 were given' in err
+        assert '--ids' in err
+
+    @pytest.mark.parametrize('extent,message', [
+        ('--csv=missing.csv', 'could not load extents: file does not exist'),
+        ('--geojson=missing.geojson', 'could not load extents: file does not exist'),
+        ('--poly=missing.poly', 'could not load extents: file does not exist'),
+    ])
+    def test_sliceosm_missing_extents_file_is_a_usage_error(self, extent, message, capsys, monkeypatch):
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', extent])
+        assert e.value.code == 2
+        assert message in capsys.readouterr().err
+
+    def test_sliceosm_invalid_bbox_is_a_usage_error(self, capsys, monkeypatch):
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--bbox=1,0,0,1', '--name=x'])
+        assert e.value.code == 2
+        assert 'invalid bounding box' in capsys.readouterr().err
+
+    @pytest.mark.parametrize('timeout', ['0', '-5'])
+    def test_sliceosm_rejects_a_non_positive_timeout(self, timeout, capsys, monkeypatch):
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--bbox=0,0,1,1', '--name=x', '--timeout=%s' % timeout])
+        assert e.value.code == 2
+        assert 'positive' in capsys.readouterr().err
+
+    def test_sliceosm_checks_the_output_before_submitting(self, tmp_path, capsys, monkeypatch):
+        (tmp_path / 'sf.osm.pbf').write_bytes(b'')
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--bbox=0,0,1,1', '--name=sf', '--outpath=%s' % tmp_path])
+        assert e.value.code == 1
+        assert '--overwrite' in capsys.readouterr().err
+
+    def test_sliceosm_ids_select_from_a_file(self, tmp_path, monkeypatch):
+        csv = tmp_path / 'two.csv'
+        csv.write_text('a,0,0,1,1\nb,0,0,1,1\n')
+        seen = []
+        monkeypatch.setattr(SliceOsmDownloader, 'download',
+                            lambda self, name, feature, outpath, timeout: seen.append(name))
+        osm_extract_download.main(['sliceosm', '--csv=%s' % csv, '--ids=b', '--outpath=%s' % tmp_path])
+        assert seen == ['b']

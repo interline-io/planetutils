@@ -36,7 +36,7 @@ Python-based scripts and a Docker container to work with planet-scale geographic
 
 - maintain your own copy of the [OpenStreetMap](http://www.openstreetmap.org) planet (by applying incremental updates)
 - cut your copy of the OSM planet into named bounding boxes
-- download [OSM Extracts from Interline](https://www.interline.io/osm/extracts/) for popular cities and regions
+- download OSM extracts in PBF format from Geofabrik, SliceOSM or Interline
 - download [Mapzen Terrain Tiles from AWS](https://aws.amazon.com/public-datasets/terrain/) for the planet or your bounding boxes
 - merge and resample Terrain Tiles
 - download [Valhalla Tilepacks from Interline](https://www.interline.io/valhalla/tilepacks) for the planet (subscription required)
@@ -230,23 +230,58 @@ osm_extract_convert -h
 
 ### osm_extract_download
 
-Download regularly updated OSM extracts for popular cities and regions from [OSM Extracts by Interline](https://www.interline.io/osm/extracts). Browse available extracts using [the web interface]((https://www.interline.io/osm/extracts)) or [the GeoJSON file](https://github.com/interline-io/osm-extracts/blob/master/cities.geojson). Anyone can browse the available extracts or propose changes to the extract bounding boxes on [GitHub](https://github.com/interline-io/osm-extracts). A subscription is required to download extracts, to cover hosting costs and keep the service sustainable. (See the OSM Extracts website for more information on how profits are donated to OpenStreetMap and other "open" efforts.)
+Download an OSM extract in PBF format from one of three sources. The first argument picks the source:
 
-To download the latest copy of an extract (if `abcd` is your Interline API token and `abidjan_ivory-coast` is the ID for your chosen extract region):
+| Source | What it provides |
+| --- | --- |
+| `geofabrik` | Countries and regions from [Geofabrik's download server](https://download.geofabrik.de/), updated daily |
+| `sliceosm` | Any area you define, cut on demand from minutely updated data by [SliceOSM](https://slice.openstreetmap.us/) |
+| `interline` | The few regions that [OSM Extracts by Interline](https://www.interline.io/osm/extracts/) still publishes; an Interline API token is required |
+
+Files are written to `--outpath` (default: the current directory) as `<id>.osm.pbf`. An existing file is an error unless you pass `--overwrite`.
+
+**Changed in 1.0.0:** the source is now the first argument, `--outpath` is a directory rather than a file, and `--data-format` is gone: every source provides PBF. To get GeoJSON or GeoJSONL, convert the download with [`osm_extract_convert`](#osm_extract_convert). The old `osm_extract_download --api-token=abcd us-ca` is now `osm_extract_download interline --api-token=abcd us-ca`.
+
+#### From Geofabrik
+
+Find a region's ID, then download it:
 
 ```sh
-osm_extract_download --api-token=abcd abidjan_ivory-coast
+osm_extract_download geofabrik --search=california
+osm_extract_download geofabrik us/california --outpath=data
 ```
 
-You can also download extracts in GeoJSON format by using `--data-format=geojson`. Warning: these can be very large files, but may be useful for filtering and displaying on a web map.
+`--list` prints every region. A nested ID is saved with a dash, so `us/california` becomes `us-california.osm.pbf`. Downloads are checked against the MD5 checksum Geofabrik publishes. Geofabrik updates each file once a day, so please don't download the same region more often than that.
+
+#### From SliceOSM
+
+> SliceOSM's API is operated by [OpenStreetMap US](https://openstreetmap.us/) on a best-effort, volunteer basis. Heavy automated use is not permitted: don't call it from scheduled jobs or loop over many areas. For bulk or recurring extracts, download a [planet](#osm_planet_update) or a Geofabrik region and cut it with [`osm_planet_extract`](#osm_planet_extract).
+
+Name one area the same way as for `osm_planet_extract`: `--bbox` with `--name`, or a [CSV, GeoJSON or .poly file](#bounding-box). For a file with several areas, pick one with `--ids`. Polygons are cut along their boundary.
+
+```sh
+osm_extract_download sliceosm --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco
+osm_extract_download sliceosm --poly=berlin.poly
+```
+
+Each run downloads one area. SliceOSM caps the size of an area; very large ones are refused. `--timeout` sets how long to wait for the area to be prepared (default 1800 seconds). SliceOSM doesn't report an area that failed, so a failure shows up as a timeout.
+
+#### From Interline
+
+OSM Extracts by Interline has wound down, and publishes only a few regions in PBF format. Browse them on [the OSM Extracts website](https://www.interline.io/osm/extracts/), where you can also get an API token.
+
+```sh
+osm_extract_download interline us-ca --api-token=abcd
+```
+
+The token can also be set as `$INTERLINE_API_TOKEN`. To cut any of the regions OSM Extracts used to publish yourself, see [`osm_planet_extract --ids`](#osm_planet_extract).
 
 For complete help on command-line arguments:
 
 ```sh
 osm_extract_download -h
+osm_extract_download sliceosm -h
 ```
-
-(Note: OSM Extracts is a hosted and managed version of the PlanetUtils library. Every day, the pipeline runs the `osm_planet_update` and `osm_planet_extract` commands.)
 
 ### osm_planet_get_timestamp
 

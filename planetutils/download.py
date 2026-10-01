@@ -56,11 +56,10 @@ def make_session(pool_size=DEFAULT_POOL_SIZE):
     Reusing one Session keeps TLS connections alive across a run, which
     matters more than bandwidth here: tile downloads are latency-bound.
 
-    Deliberately opt-in. Routing every caller through this would change the
-    behavior of the planet, extract and tilepack downloads, which this
-    feature is not about -- and urllib3 logs the full URL on each retry, so
-    the api_token those callers put in their query string would reach the
-    logs.
+    Deliberately opt-in, and only for URLs without credentials: urllib3 logs
+    the full URL on each retry, so the api_token that Interline's planet,
+    extract and tilepack downloads put in their query string would reach
+    the logs.
     """
     session = requests.Session()
     # pool_connections is the count of cached per-host pools; every tile
@@ -92,18 +91,24 @@ def _get(url, compressed=False, timeout=TIMEOUT, session=None):
     return r
 
 
-def _write_atomically(response, outpath, transform=None):
+def _write_atomically(response, outpath, transform=None, verify=None):
     """Stream `response` to `outpath` via a temporary file.
 
     Writing through a .part file means an interrupted or failed download
     never leaves a partial file behind that tile_exists() would later treat
     as a valid cached tile.
+
+    `verify`, if given, is called once the body is written and before it
+    replaces `outpath`. Raising from it discards the download and leaves any
+    existing `outpath` untouched.
     """
     partpath = '%s.part' % outpath
     try:
         with open(partpath, 'wb') as f:
             body = transform(response) if transform else response.raw
             shutil.copyfileobj(body, f, CHUNK_SIZE)
+        if verify:
+            verify()
         os.replace(partpath, outpath)
     except BaseException:
         # Close the response for the same reason _get does on an error
@@ -159,10 +164,19 @@ def download_curl(url, outpath, compressed=False, timeout=TIMEOUT,
     if os.path.exists(outpath):
         log.warning("Warning: output path %s already exists." % outpath)
 
-    log.info("Downloading to %s" % outpath)
     # NOTE: the URL is deliberately not logged. It can carry an api_token in
     # its query string, which would otherwise end up in logs.
     r = _get(url, compressed=compressed, timeout=timeout, session=session)
-    r.raw.decode_content = True
-    _write_atomically(r, outpath)
+    save(r, outpath)
+
+
+def save(response, outpath, transform=None, verify=None):
+    """Write an already-checked streaming `response` to `outpath`.
+
+    For callers that need to inspect the status themselves before saving.
+    `transform` and `verify` are as for _write_atomically.
+    """
+    log.info("Downloading to %s" % outpath)
+    response.raw.decode_content = True
+    _write_atomically(response, outpath, transform=transform, verify=verify)
     log.info("Done")
