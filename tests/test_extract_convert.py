@@ -100,16 +100,19 @@ class TestConverterArgv:
 
 class TestCli:
     def test_converts_each_input(self, monkeypatch, tmp_path):
+        inputs = [str(tmp_path / 'a.osm.pbf'), str(tmp_path / 'b.osm.pbf')]
+        for path in inputs:
+            open(path, 'wb').close()
         seen = []
         monkeypatch.setattr(planet.ExtractConverterOsmium, 'convert',
                             lambda self, **kw: seen.append((self.osmpath, kw)))
         monkeypatch.setattr(sys, 'argv', [
             'osm_extract_convert', '--format=geojsonl',
-            '--outpath=%s' % tmp_path, OSMPATH, OSMPATH])
+            '--outpath=%s' % tmp_path, *inputs])
         osm_extract_convert.main()
-        assert seen == [(OSMPATH, {'data_format': 'geojsonl',
-                                   'outpath': str(tmp_path),
-                                   'overwrite': False})] * 2
+        kw = {'data_format': 'geojsonl', 'outpath': str(tmp_path),
+              'overwrite': False}
+        assert seen == [(inputs[0], kw), (inputs[1], kw)]
 
     def test_inputs_writing_the_same_output_are_rejected(self, monkeypatch, capsys):
         monkeypatch.setattr(planet.ExtractConverterOsmium, 'convert',
