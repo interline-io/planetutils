@@ -75,3 +75,10 @@ def test_blank_ids_fails_rather_than_cutting_everything(monkeypatch, capsys):
         run(monkeypatch, '--geojson=%s' % TEST_GEOJSON, '--ids=')
     assert e.value.code == 2
     assert '--ids is empty' in capsys.readouterr().err
+
+
+def test_missing_extents_file_is_a_usage_error(monkeypatch, capsys):
+    with pytest.raises(SystemExit) as e:
+        run(monkeypatch, '--geojson=does-not-exist.geojson')
+    assert e.value.code == 2
+    assert 'could not load extents: file does not exist' in capsys.readouterr().err

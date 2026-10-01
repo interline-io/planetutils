@@ -162,6 +162,11 @@ class TestSliceOsm:
         assert SliceOsmDownloader.region(rect(-122.41, 37.79, -122.40, 37.795)) == (
             'bbox', [37.79, -122.41, 37.795, -122.40])
 
+    def test_right_triangle_is_not_mistaken_for_a_rectangle(self):
+        """is_rectangle() only counts distinct coordinates."""
+        geometry = {'type': 'Polygon', 'coordinates': [[[0, 0], [1, 0], [0, 1], [0, 0]]]}
+        assert SliceOsmDownloader.region(Feature(geometry=geometry)) == ('geojson', geometry)
+
     def test_polygon_is_sent_as_geojson(self):
         geometry = {'type': 'Polygon', 'coordinates': [[[0, 0], [2, 0], [1, 2], [0, 0]]]}
         assert SliceOsmDownloader.region(Feature(geometry=geometry)) == ('geojson', geometry)
@@ -270,6 +275,8 @@ class TestCli:
         (['--outpath', 'data', 'abidjan_ivory-coast'], '--outpath data abidjan_ivory-coast'),
         (['--api-token=SECRET', 'us-ca'], '--api-token=... us-ca'),
         (['--api-token', 'SECRET', 'us-ca'], '--api-token ... us-ca'),
+        (['--api-t=SECRET', 'us-ca'], '--api-t=... us-ca'),
+        (['--api', 'SECRET', 'us-ca'], '--api ... us-ca'),
     ])
     def test_old_syntax_explains_the_change_without_echoing_the_token(self, argv, shown, capsys):
         with pytest.raises(SystemExit) as e:
@@ -362,6 +369,33 @@ class TestCli:
         err = capsys.readouterr().err
         assert 'one area per run, and 2 were given' in err
         assert '--ids' in err
+
+    @pytest.mark.parametrize('extent,message', [
+        ('--csv=missing.csv', 'could not load extents: file does not exist'),
+        ('--geojson=missing.geojson', 'could not load extents: file does not exist'),
+        ('--poly=missing.poly', 'could not load extents: file does not exist'),
+    ])
+    def test_sliceosm_missing_extents_file_is_a_usage_error(self, extent, message, capsys, monkeypatch):
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', extent])
+        assert e.value.code == 2
+        assert message in capsys.readouterr().err
+
+    def test_sliceosm_invalid_bbox_is_a_usage_error(self, capsys, monkeypatch):
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--bbox=1,0,0,1', '--name=x'])
+        assert e.value.code == 2
+        assert 'invalid bounding box' in capsys.readouterr().err
+
+    @pytest.mark.parametrize('timeout', ['0', '-5'])
+    def test_sliceosm_rejects_a_non_positive_timeout(self, timeout, capsys, monkeypatch):
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--bbox=0,0,1,1', '--name=x', '--timeout=%s' % timeout])
+        assert e.value.code == 2
+        assert 'positive' in capsys.readouterr().err
 
     def test_sliceosm_checks_the_output_before_submitting(self, tmp_path, capsys, monkeypatch):
         (tmp_path / 'sf.osm.pbf').write_bytes(b'')

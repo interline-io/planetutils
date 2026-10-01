@@ -33,16 +33,30 @@ class SourceParser(argparse.ArgumentParser):
 
 
 def redact_token(argv):
+    # argparse accepts any unambiguous abbreviation, so the old CLI took
+    # --api-t=SECRET as readily as --api-token=SECRET.
+    def is_token_option(option):
+        return len(option) > 2 and '--api-token'.startswith(option)
+
     redacted, hide_next = [], False
     for arg in argv:
+        option, eq, _value = arg.partition('=')
         if hide_next:
             arg, hide_next = '...', False
-        elif arg == '--api-token':
-            hide_next = True
-        elif arg.startswith('--api-token='):
-            arg = '--api-token=...'
+        elif is_token_option(option):
+            if eq:
+                arg = option + '=...'
+            else:
+                hide_next = True
         redacted.append(arg)
     return redacted
+
+
+def positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError('must be a positive number of seconds')
+    return number
 
 
 def build_parser():
@@ -75,7 +89,7 @@ def build_parser():
         help='any area, on demand, from slice.openstreetmap.us (operated by OSM US; '
              'heavy automated use is not permitted)')
     add_extent_arguments(p, name_help='Name for the extract given by --bbox.')
-    p.add_argument('--timeout', help='Seconds to wait for the extract to be prepared', type=int, default=SliceOsmDownloader.DEFAULT_TIMEOUT)
+    p.add_argument('--timeout', help='Seconds to wait for the extract to be prepared', type=positive_int, default=SliceOsmDownloader.DEFAULT_TIMEOUT)
     return parser
 
 

@@ -246,7 +246,10 @@ class SliceOsmDownloader(Downloader):
     def region(feature):
         """The RegionType and RegionData SliceOSM expects for an extent."""
         geometry = feature.geometry
-        if not feature.is_rectangle() and geometry.get('type') in ('Polygon', 'MultiPolygon'):
+        # Not is_rectangle(): it only counts distinct coordinates, so a right
+        # triangle passes as a rectangle. A --bbox is a LineString, so every
+        # polygon here was given as one.
+        if geometry.get('type') in ('Polygon', 'MultiPolygon'):
             return 'geojson', geometry
         # SliceOSM's bbox is latitude first: min_lat,min_lon,max_lat,max_lon.
         left, bottom, right, top = feature.bbox()

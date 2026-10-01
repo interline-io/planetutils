@@ -49,16 +49,24 @@ def add_extent_arguments(parser, name_help='Name to give to extract file.'):
 
 def load_extents(args, parser):
     """Load the extents named by add_extent_arguments' options."""
-    if args.csv:
-        bboxes = bbox.load_features_csv(args.csv)
-    elif args.geojson:
-        bboxes = bbox.load_features_geojson(args.geojson)
-    elif args.poly:
-        bboxes = bbox.load_features_poly(args.poly)
-    elif args.bbox and args.name:
-        bboxes = {args.name: bbox.load_feature_string(args.bbox)}
-    else:
+    if not (args.csv or args.geojson or args.poly or (args.bbox and args.name)):
         parser.error('must specify --csv, --geojson, --poly, or --bbox and --name')
+    # The loaders signal a missing file or bad content with plain Exception,
+    # and validate_bbox with AssertionError; report either as a usage error
+    # rather than a traceback.
+    try:
+        if args.csv:
+            bboxes = bbox.load_features_csv(args.csv)
+        elif args.geojson:
+            bboxes = bbox.load_features_geojson(args.geojson)
+        elif args.poly:
+            bboxes = bbox.load_features_poly(args.poly)
+        else:
+            bboxes = {args.name: bbox.load_feature_string(args.bbox)}
+    except AssertionError:
+        parser.error('invalid bounding box: coordinates must be left,bottom,right,top in degrees')
+    except Exception as e:
+        parser.error('could not load extents: %s' % (e or type(e).__name__))
     if args.ids is not None:
         bboxes = select_ids(bboxes, args.ids, parser)
     return bboxes
