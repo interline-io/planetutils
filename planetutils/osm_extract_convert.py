@@ -4,7 +4,12 @@ import os
 
 from . import log
 from .cli import handle_missing_binary
-from .planet import EXPORT_FORMATS, ExtractConverterOsmium, PlanetPathError
+from .planet import (
+    EXPORT_FORMATS,
+    ExtractConverterOsmium,
+    PlanetPathError,
+    export_output_path,
+)
 
 
 @handle_missing_binary
@@ -23,6 +28,16 @@ def main():
 
     if args.verbose:
         log.set_verbose()
+
+    # Outputs are named by basename, so a/berlin.osm.pbf and b/berlin.osm.pbf
+    # would write the same file. Refuse before converting anything.
+    outputs = {}
+    for osmpath in args.osmpath:
+        output = os.path.normcase(os.path.abspath(
+            export_output_path(osmpath, args.data_format, outpath=args.outpath)))
+        if output in outputs:
+            parser.error('%s and %s would both write %s' % (outputs[output], osmpath, output))
+        outputs[output] = osmpath
 
     for osmpath in args.osmpath:
         p = ExtractConverterOsmium(osmpath)

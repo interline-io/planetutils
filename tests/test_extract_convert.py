@@ -111,6 +111,17 @@ class TestCli:
                                    'outpath': str(tmp_path),
                                    'overwrite': False})] * 2
 
+    def test_inputs_writing_the_same_output_are_rejected(self, monkeypatch, capsys):
+        monkeypatch.setattr(planet.ExtractConverterOsmium, 'convert',
+                            lambda self, **kw: pytest.fail('converted'))
+        monkeypatch.setattr(sys, 'argv', [
+            'osm_extract_convert', '--overwrite',
+            os.path.join('a', 'berlin.osm.pbf'), os.path.join('b', 'berlin.pbf')])
+        with pytest.raises(SystemExit) as e:
+            osm_extract_convert.main()
+        assert e.value.code == 2
+        assert 'would both write' in capsys.readouterr().err
+
     def test_missing_input_is_a_clean_error(self, monkeypatch, capsys):
         monkeypatch.setattr(sys, 'argv', [
             'osm_extract_convert', 'does-not-exist.osm.pbf'])
