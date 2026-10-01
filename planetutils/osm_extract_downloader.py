@@ -26,38 +26,66 @@ def user_agent():
     return 'interline-planetutils/%s (+https://github.com/interline-io/planetutils)' % version
 
 
+def output_path(outdir, name):
+    """<outdir>/<name>.osm.pbf, refusing names that would leave outdir.
+
+    Names come from region ids, GeoJSON properties and .poly name lines, so
+    a separator or `..` in one must not pick the directory.
+    """
+    name = str(name)
+    if (not name or name in ('.', '..') or '/' in name or '\\' in name
+            or os.path.basename(name) != name):
+        raise ExtractDownloadError(
+            'cannot name an output file after %r: names must not contain path '
+            'separators' % name)
+    return os.path.join(outdir, '%s.osm.pbf' % name)
+
+
 def check_outpath(outpath, overwrite=False):
+    outdir = os.path.dirname(outpath) or '.'
+    if not os.path.isdir(outdir):
+        raise ExtractDownloadError('output directory does not exist: %s' % outdir)
     if os.path.exists(outpath) and not overwrite:
         raise ExtractDownloadError(
             'output file exists: %s\nUse --overwrite to replace it.' % outpath)
 
 
-def file_md5(path):
-    h = hashlib.md5()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(download.CHUNK_SIZE), b''):
-            h.update(chunk)
-    return h.hexdigest()
+class HashingReader:
+    """Wraps a file-like body, hashing what is read through it."""
+
+    def __init__(self, raw):
+        self.raw = raw
+        self.md5 = hashlib.md5()
+
+    def read(self, *args):
+        chunk = self.raw.read(*args)
+        self.md5.update(chunk)
+        return chunk
 
 
 class Downloader:
-    def __init__(self, session=None):
-        self.session = session or requests.Session()
+    def __init__(self, session=None, retry=False):
+        # Retries suit the public sources, but not Interline: urllib3 logs
+        # the full URL on each retry, and Interline's carries an api_token.
+        self.session = session or (download.make_session() if retry else requests.Session())
         self.session.headers['User-Agent'] = user_agent()
 
-    def _get(self, url, timeout=download.TIMEOUT, stream=False):
+    def _request(self, method, url, timeout=download.TIMEOUT, **kw):
         # Status codes are left to the caller, which knows what each means.
         # NOTE: the URL is deliberately not logged or put in messages:
         # Interline's carries an api_token in its query string.
         try:
-            return self.session.get(url, stream=stream, timeout=timeout)
+            return self.session.request(method, url, timeout=timeout, **kw)
         except requests.RequestException as e:
             raise ExtractDownloadError('request failed: %s' % type(e).__name__) from None
 
-    def _save(self, response, outpath):
+    def _get(self, url, timeout=download.TIMEOUT, stream=False):
+        return self._request('GET', url, timeout=timeout, stream=stream)
+
+    def _save(self, response, outpath, transform=None, verify=None):
         log.info('Downloading to %s' % outpath)
         response.raw.decode_content = True
-        download._write_atomically(response, outpath)
+        download._write_atomically(response, outpath, transform=transform, verify=verify)
         log.info('Done')
 
 
@@ -107,6 +135,9 @@ class GeofabrikDownloader(Downloader):
     """
     INDEX_URL = 'https://download.geofabrik.de/index-v1-nogeom.json'
 
+    def __init__(self, session=None):
+        super().__init__(session=session, retry=True)
+
     def regions(self):
         r = self._get(self.INDEX_URL)
         if r.status_code != 200:
@@ -136,9 +167,10 @@ class GeofabrikDownloader(Downloader):
             'osm_extract_download geofabrik --search=<name>' % region_id)
 
     @staticmethod
-    def filename(region_id):
-        # Ids can be nested, like us/california; name the file for the last part.
-        return '%s.osm.pbf' % region_id.split('/')[-1]
+    def name(region_id):
+        # Ids can be nested, and the last part alone is ambiguous: georgia is
+        # the country, us/georgia the state. Keep the whole id.
+        return region_id.replace('/', '-')
 
     def download(self, region_id, outpath):
         url = self.find(region_id)['urls']['pbf']
@@ -148,22 +180,38 @@ class GeofabrikDownloader(Downloader):
             r.close()
             raise ExtractDownloadError(
                 'could not download %s from Geofabrik (HTTP %s)' % (region_id, r.status_code))
-        self._save(r, outpath)
-        if expected:
-            actual = file_md5(outpath)
+        reader = None
+
+        def hashing(response):
+            nonlocal reader
+            reader = HashingReader(response.raw)
+            return reader
+
+        def verify():
+            # Before the download replaces outpath, so a bad file never
+            # displaces a good one.
+            if not expected:
+                return
+            actual = reader.md5.hexdigest()
             if actual != expected:
-                os.unlink(outpath)
                 raise ExtractDownloadError(
                     'checksum mismatch for %s: expected %s, got %s. Geofabrik '
                     'may have published a new file mid-download; try again.' % (
                         region_id, expected, actual))
             log.info('Checksum verified')
 
+        self._save(r, outpath, transform=hashing, verify=verify)
+
     def _md5(self, url):
-        r = self._get(url + '.md5')
-        parts = r.text.split() if r.status_code == 200 else []
+        # A checksum is a check, not a requirement: any failure to get one
+        # warns and downloads unverified.
+        try:
+            r = self._get(url + '.md5')
+            parts = r.text.split() if r.status_code == 200 else []
+        except ExtractDownloadError:
+            parts = []
         if not parts:
-            log.warning('No checksum published for %s; skipping verification' % url)
+            log.warning('No checksum available for %s; skipping verification' % url)
             return None
         # "<hash>  <filename>"
         return parts[0].lower()
@@ -183,7 +231,10 @@ class SliceOsmDownloader(Downloader):
     UUID = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
     def __init__(self, session=None, sleep=time.sleep, clock=time.monotonic):
-        super().__init__(session=session)
+        # Retries cover a transient 5xx or 429 while polling, so a job that
+        # is still running isn't abandoned and resubmitted. Only GETs are
+        # retried, so a submission is never sent twice.
+        super().__init__(session=session, retry=True)
         self.sleep = sleep
         self.clock = clock
 
@@ -201,11 +252,11 @@ class SliceOsmDownloader(Downloader):
         region_type, region_data = self.region(feature)
         body = json.dumps({'Name': str(name), 'RegionType': region_type,
                            'RegionData': region_data})
-        try:
-            r = self.session.post(self.API_URL, data=body, timeout=download.TIMEOUT)
-        except requests.RequestException as e:
-            raise ExtractDownloadError('request failed: %s' % type(e).__name__) from None
+        r = self._request('POST', self.API_URL, data=body)
         task = r.text.strip()
+        if r.status_code == 503:
+            raise ExtractDownloadError(
+                "SliceOSM's queue is full; try again later.")
         if r.status_code not in (200, 201) or not self.UUID.match(task):
             raise ExtractDownloadError(
                 'SliceOSM did not accept %s (HTTP %s)%s. The area may be too '
@@ -216,13 +267,19 @@ class SliceOsmDownloader(Downloader):
     def wait(self, task, timeout):
         # Back off from 2s to 30s between polls: small areas finish in
         # seconds, and large ones don't need to be asked about often.
+        #
+        # SliceOSM doesn't report a task that failed: its status stays
+        # incomplete, just like a slow or queued one. So the timeout is the
+        # only way out of a failed task.
         deadline = self.clock() + timeout
         interval = 2
         while True:
             r = self._get(self.API_URL + task)
+            if r.status_code == 404:
+                raise ExtractDownloadError('SliceOSM has no record of task %s' % task)
             if r.status_code != 200:
                 raise ExtractDownloadError(
-                    'SliceOSM has no task %s (HTTP %s)' % (task, r.status_code))
+                    'SliceOSM returned HTTP %s for task %s' % (r.status_code, task))
             try:
                 progress = r.json()
             except ValueError:
@@ -232,12 +289,15 @@ class SliceOsmDownloader(Downloader):
                 return progress
             log.debug('SliceOSM task %s: %s of %s elements' % (
                 task, progress.get('ElemsProg'), progress.get('ElemsTotal')))
-            if self.clock() + interval > deadline:
+            remaining = deadline - self.clock()
+            if remaining <= 0:
                 raise ExtractDownloadError(
-                    'SliceOSM task %s did not finish within %s seconds. Its '
-                    'result is kept for 24 hours at %s%s.osm.pbf' % (
+                    'SliceOSM task %s did not finish within %s seconds. It may '
+                    'still be running, or it may have failed: SliceOSM does '
+                    'not report failures. If it finishes, the result is kept '
+                    'for 24 hours at %s%s.osm.pbf' % (
                         task, timeout, self.FILES_URL, task))
-            self.sleep(interval)
+            self.sleep(min(interval, remaining))
             interval = min(interval * 1.5, 30)
 
     def download(self, name, feature, outpath, timeout=1800):

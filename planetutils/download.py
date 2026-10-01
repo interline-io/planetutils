@@ -92,18 +92,24 @@ def _get(url, compressed=False, timeout=TIMEOUT, session=None):
     return r
 
 
-def _write_atomically(response, outpath, transform=None):
+def _write_atomically(response, outpath, transform=None, verify=None):
     """Stream `response` to `outpath` via a temporary file.
 
     Writing through a .part file means an interrupted or failed download
     never leaves a partial file behind that tile_exists() would later treat
     as a valid cached tile.
+
+    `verify`, if given, is called once the body is written and before it
+    replaces `outpath`. Raising from it discards the download and leaves any
+    existing `outpath` untouched.
     """
     partpath = '%s.part' % outpath
     try:
         with open(partpath, 'wb') as f:
             body = transform(response) if transform else response.raw
             shutil.copyfileobj(body, f, CHUNK_SIZE)
+        if verify:
+            verify()
         os.replace(partpath, outpath)
     except BaseException:
         # Close the response for the same reason _get does on an error

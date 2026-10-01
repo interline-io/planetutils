@@ -229,7 +229,7 @@ osm_extract_download geofabrik --search=california
 osm_extract_download geofabrik us/california --outpath=data
 ```
 
-`--list` prints every region. Downloads are checked against the MD5 checksum Geofabrik publishes. Geofabrik updates each file once a day, so please don't download the same region more often than that.
+`--list` prints every region. A nested ID is saved with a dash, so `us/california` becomes `us-california.osm.pbf`. Downloads are checked against the MD5 checksum Geofabrik publishes. Geofabrik updates each file once a day, so please don't download the same region more often than that.
 
 #### From SliceOSM
 
@@ -242,7 +242,7 @@ osm_extract_download sliceosm --bbox=-122.737,37.449,-122.011,37.955 --name=san-
 osm_extract_download sliceosm --poly=berlin.poly
 ```
 
-Each area is submitted and downloaded one at a time, and a run takes at most 5 areas. SliceOSM caps the size of an area; very large ones are refused. `--timeout` sets how long to wait for each area to be prepared (default 1800 seconds).
+Each area is submitted and downloaded one at a time, and a run takes at most 5 areas. SliceOSM caps the size of an area; very large ones are refused. `--timeout` sets how long to wait for each area to be prepared (default 1800 seconds). SliceOSM doesn't report an area that failed, so a failure shows up as a timeout.
 
 #### From Interline
 
