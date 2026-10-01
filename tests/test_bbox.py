@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 
+import pytest
 from conftest import TEST_GEOJSON
 
 import planetutils.bbox as bbox
@@ -202,3 +203,50 @@ class TestFlatcoords(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def polygon(*rings):
+    return bbox.Feature(geometry={'type': 'Polygon', 'coordinates': [list(r) for r in rings]})
+
+
+SQUARE = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+
+
+@pytest.mark.parametrize('ring', [
+    SQUARE,
+    SQUARE[:-1],                                    # unclosed
+    [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]],       # clockwise
+    [[1, 1], [0, 1], [0, 0], [1, 0], [1, 1]],       # different start
+    [[0.0, 0.0], [1, 0], [1.0, 1], [0, 1.0], [0, 0]],
+])
+def test_polygon_rectangles(ring):
+    assert polygon(ring).is_rectangle()
+
+
+@pytest.mark.parametrize('ring', [
+    [[0, 0], [1, 0], [0, 1], [0, 0]],                       # right triangle
+    [[0, 0], [1, 0], [1, 1], [0, 0]],                       # the other half
+    [[0, 0], [1, 1], [0, 1], [1, 0], [0, 0]],               # bowtie
+    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0.5], [0, 0]],     # extra vertex
+    [[0, 0], [2, 1], [1, 3], [-1, 2], [0, 0]],              # rotated square
+])
+def test_polygons_that_are_not_rectangles(ring):
+    assert not polygon(ring).is_rectangle()
+
+
+def test_rectangle_with_a_hole_is_not_a_rectangle():
+    hole = [[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75], [0.25, 0.25]]
+    assert not polygon(SQUARE, hole).is_rectangle()
+
+
+def test_multipolygon_is_cut_as_a_polygon():
+    feat = bbox.Feature(geometry={'type': 'MultiPolygon', 'coordinates': [[SQUARE]]})
+    assert not feat.is_rectangle()
+
+
+@pytest.mark.parametrize('geometry', [
+    {'type': 'Point', 'coordinates': [13.4, 52.5]},
+    {'type': 'LineString', 'coordinates': [[0, 0], [1, 2], [3, 1]]},
+])
+def test_other_geometries_stand_for_their_bounding_box(geometry):
+    assert bbox.Feature(geometry=geometry).is_rectangle()

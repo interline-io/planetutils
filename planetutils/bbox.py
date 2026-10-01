@@ -42,10 +42,39 @@ class Feature:
         }
 
     def is_rectangle(self):
-        fc = flatcoords(self.geometry.get('coordinates', []))
-        lons = {i[0] for i in fc}
-        lats = {i[1] for i in fc}
-        return len(lons) <= 2 and len(lats) <= 2
+        """Whether this extent is exactly its bounding box.
+
+        Polygons and multipolygons must be cut along their boundary unless
+        they are an axis-aligned rectangle. Counting distinct coordinates is
+        not enough: a right triangle such as (0,0) (1,0) (0,1) has only two
+        of each. Any other geometry -- the LineString that set_bbox() builds,
+        a Point -- stands for its bounding box.
+        """
+        gtype = self.geometry.get('type')
+        if gtype == 'MultiPolygon':
+            return False
+        if gtype != 'Polygon':
+            return True
+        rings = self.geometry.get('coordinates', [])
+        if len(rings) != 1:
+            # No exterior ring, or a hole in it.
+            return False
+        ring = [tuple(p[:2]) for p in rings[0]]
+        if len(ring) > 1 and ring[0] == ring[-1]:
+            ring = ring[:-1]
+        if len(ring) != 4:
+            return False
+        lons = sorted({p[0] for p in ring})
+        lats = sorted({p[1] for p in ring})
+        if len(lons) != 2 or len(lats) != 2:
+            return False
+        corners = {(x, y) for x in lons for y in lats}
+        if set(ring) != corners:
+            return False
+        # Walking the ring, each step must move along exactly one axis: a
+        # step across the diagonal draws a self-intersecting bowtie.
+        return all((a[0] == b[0]) != (a[1] == b[1])
+                   for a, b in zip(ring, ring[1:] + ring[:1], strict=True))
 
     # act like [left, bottom, right, top]
     def __getitem__(self, item):
