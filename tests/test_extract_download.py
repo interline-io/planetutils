@@ -220,6 +220,31 @@ class TestSliceOsm:
             slice_downloader().submit('huge', rect(-10, -10, 10, 10))
 
 
+def test_a_download_interrupted_mid_body_is_a_clean_error(tmp_path):
+    """urllib3 raises ProtocolError, not a RequestException, when the
+    connection drops after the headers."""
+    import socket
+    import threading
+    srv = socket.socket()
+    srv.bind(('127.0.0.1', 0))
+    srv.listen(1)
+
+    def serve():
+        conn, _ = srv.accept()
+        conn.recv(65536)
+        conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 100000\r\n\r\n' + b'x' * 1000)
+        conn.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    out = tmp_path / 'x.osm.pbf'
+    d = SliceOsmDownloader()
+    r = d._get_large('http://127.0.0.1:%d/x' % srv.getsockname()[1], 'x')
+    with pytest.raises(ExtractDownloadError, match='interrupted'):
+        d._save(r, str(out))
+    srv.close()
+    assert os.listdir(tmp_path) == []
+
+
 def test_public_sources_retry_but_interline_does_not():
     """urllib3 logs the URL on retry, and Interline's carries the token."""
     def retries(downloader):

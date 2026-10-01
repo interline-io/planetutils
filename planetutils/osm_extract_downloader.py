@@ -8,6 +8,7 @@ from importlib import metadata
 from urllib.parse import urlencode
 
 import requests
+import urllib3
 
 from . import download, log
 
@@ -80,6 +81,16 @@ class Downloader:
     def _get(self, url, timeout=download.TIMEOUT, stream=False):
         return self._request('GET', url, timeout=timeout, stream=stream)
 
+    def _save(self, response, outpath, **kw):
+        # A connection dropped or stalled mid-body surfaces from urllib3,
+        # not as a RequestException; the .part file is already cleaned up.
+        try:
+            download.save(response, outpath, **kw)
+        except (urllib3.exceptions.HTTPError, requests.RequestException) as e:
+            raise ExtractDownloadError(
+                'download of %s was interrupted (%s); try again' % (
+                    outpath, type(e).__name__)) from None
+
     def _get_large(self, url, what):
         """Start a streaming download, or raise naming `what` couldn't be had."""
         r = self._get(url, timeout=download.LARGE_FILE_TIMEOUT, stream=True)
@@ -117,7 +128,7 @@ class InterlineExtractDownloader(Downloader):
             raise ExtractDownloadError(
                 'Interline could not provide %s (HTTP %s)%s' % (
                     extract_id, r.status_code, ': %s' % detail if detail else ''))
-        download.save(r, outpath)
+        self._save(r, outpath)
 
     @staticmethod
     def _error_detail(response):
@@ -178,7 +189,7 @@ class GeofabrikDownloader(Downloader):
         expected = self._md5(url)
         r = self._get_large(url, '%s from Geofabrik' % region_id)
         if not expected:
-            download.save(r, outpath)
+            self._save(r, outpath)
             return
         reader = HashingReader(r.raw)
 
@@ -193,7 +204,7 @@ class GeofabrikDownloader(Downloader):
                         region_id, expected, actual))
             log.info('Checksum verified')
 
-        download.save(r, outpath, transform=lambda _: reader, verify=verify)
+        self._save(r, outpath, transform=lambda _: reader, verify=verify)
 
     def _md5(self, url):
         # A checksum is a check, not a requirement: any failure to get one
@@ -300,4 +311,4 @@ class SliceOsmDownloader(Downloader):
         self.wait(task, timeout)
         r = self._get_large(self.FILES_URL + task + '.osm.pbf',
                             'the SliceOSM result for %s' % name)
-        download.save(r, outpath)
+        self._save(r, outpath)
