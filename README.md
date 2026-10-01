@@ -235,14 +235,14 @@ osm_extract_download geofabrik us/california --outpath=data
 
 > SliceOSM's API is operated by [OpenStreetMap US](https://openstreetmap.us/) on a best-effort, volunteer basis. Heavy automated use is not permitted: don't call it from scheduled jobs or loop over many areas. For bulk or recurring extracts, download a [planet](#osm_planet_update) or a Geofabrik region and cut it with [`osm_planet_extract`](#osm_planet_extract).
 
-Name an area the same way as for `osm_planet_extract`: `--bbox` with `--name`, or a [CSV, GeoJSON or .poly file](#bounding-box), optionally narrowed with `--ids`. Polygons are cut along their boundary.
+Name one area the same way as for `osm_planet_extract`: `--bbox` with `--name`, or a [CSV, GeoJSON or .poly file](#bounding-box). For a file with several areas, pick one with `--ids`. Polygons are cut along their boundary.
 
 ```sh
 osm_extract_download sliceosm --bbox=-122.737,37.449,-122.011,37.955 --name=san-francisco
 osm_extract_download sliceosm --poly=berlin.poly
 ```
 
-Each area is submitted and downloaded one at a time, and a run takes at most 5 areas. SliceOSM caps the size of an area; very large ones are refused. `--timeout` sets how long to wait for each area to be prepared (default 1800 seconds). SliceOSM doesn't report an area that failed, so a failure shows up as a timeout.
+Each run downloads one area. SliceOSM caps the size of an area; very large ones are refused. `--timeout` sets how long to wait for the area to be prepared (default 1800 seconds). SliceOSM doesn't report an area that failed, so a failure shows up as a timeout.
 
 #### From Interline
 

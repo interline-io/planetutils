@@ -352,23 +352,24 @@ class TestCli:
         osm_extract_download.main(['geofabrik', '--search=calif'])
         assert capsys.readouterr().out == 'us/california\tCalifornia\n'
 
-    def test_sliceosm_caps_extents_per_run(self, tmp_path, capsys, monkeypatch):
-        csv = tmp_path / 'many.csv'
-        csv.write_text(''.join('a%d,0,0,1,1\n' % i for i in range(SliceOsmDownloader.MAX_EXTENTS + 1)))
-        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
-        with pytest.raises(SystemExit) as e:
-            osm_extract_download.main(['sliceosm', '--csv=%s' % csv])
-        assert e.value.code == 2
-        assert 'not permitted' in capsys.readouterr().err
-
-    def test_sliceosm_checks_every_output_before_submitting(self, tmp_path, capsys, monkeypatch):
+    def test_sliceosm_takes_one_area_per_run(self, tmp_path, capsys, monkeypatch):
         csv = tmp_path / 'two.csv'
         csv.write_text('a,0,0,1,1\nb,0,0,1,1\n')
-        (tmp_path / 'b.osm.pbf').write_bytes(b'')
         monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
         with pytest.raises(SystemExit) as e:
             osm_extract_download.main(['sliceosm', '--csv=%s' % csv, '--outpath=%s' % tmp_path])
+        assert e.value.code == 2
+        err = capsys.readouterr().err
+        assert 'one area per run, and 2 were given' in err
+        assert '--ids' in err
+
+    def test_sliceosm_checks_the_output_before_submitting(self, tmp_path, capsys, monkeypatch):
+        (tmp_path / 'sf.osm.pbf').write_bytes(b'')
+        monkeypatch.setattr(SliceOsmDownloader, 'download', lambda *a, **kw: pytest.fail('submitted'))
+        with pytest.raises(SystemExit) as e:
+            osm_extract_download.main(['sliceosm', '--bbox=0,0,1,1', '--name=sf', '--outpath=%s' % tmp_path])
         assert e.value.code == 1
+        assert '--overwrite' in capsys.readouterr().err
 
     def test_sliceosm_ids_select_from_a_file(self, tmp_path, monkeypatch):
         csv = tmp_path / 'two.csv'

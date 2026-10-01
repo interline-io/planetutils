@@ -75,7 +75,7 @@ def build_parser():
         help='any area, on demand, from slice.openstreetmap.us (operated by OSM US; '
              'heavy automated use is not permitted)')
     add_extent_arguments(p, name_help='Name for the extract given by --bbox.')
-    p.add_argument('--timeout', help='Seconds to wait for each extract to be prepared', type=int, default=SliceOsmDownloader.DEFAULT_TIMEOUT)
+    p.add_argument('--timeout', help='Seconds to wait for the extract to be prepared', type=int, default=SliceOsmDownloader.DEFAULT_TIMEOUT)
     return parser
 
 
@@ -108,17 +108,16 @@ def main(argv=None):
 
     elif args.source == 'sliceosm':
         extents = load_extents(args, parser)
-        if len(extents) > SliceOsmDownloader.MAX_EXTENTS:
+        # One area per run, to go easy on SliceOSM's volunteer-run service.
+        if len(extents) != 1:
             parser.error(
-                '%s extents requested; sliceosm takes at most %s per run. Heavy '
-                'automated use of SliceOSM is not permitted. For many areas, '
-                'download a planet or Geofabrik region and cut it with '
-                'osm_planet_extract.' % (len(extents), SliceOsmDownloader.MAX_EXTENTS))
-        # Check every output before submitting any work to SliceOSM.
-        outpaths = {name: output_path(args.outpath, name, args.overwrite) for name in extents}
-        downloader = SliceOsmDownloader()
-        for name, feature in extents.items():
-            downloader.download(name, feature, outpaths[name], timeout=args.timeout)
+                'sliceosm downloads one area per run, and %s were given; pick one '
+                'with --ids. Heavy automated use of SliceOSM is not permitted. For '
+                'many areas, download a planet or Geofabrik region and cut it with '
+                'osm_planet_extract.' % len(extents))
+        (name, feature), = extents.items()
+        outpath = output_path(args.outpath, name, args.overwrite)
+        SliceOsmDownloader().download(name, feature, outpath, timeout=args.timeout)
 
 if __name__ == '__main__':
     main()

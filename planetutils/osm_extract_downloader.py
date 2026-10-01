@@ -225,13 +225,12 @@ class SliceOsmDownloader(Downloader):
     """On-demand extracts of any area, with minutely updated data.
 
     SliceOSM is operated by OpenStreetMap US on a best-effort, volunteer
-    basis, and heavy automated use of its API is not permitted. Requests go
-    one at a time, polling slowly, and a run is capped at MAX_EXTENTS.
+    basis, and heavy automated use of its API is not permitted. The CLI
+    downloads one area per run, polling slowly.
     https://github.com/SliceOSM/sliceosm-api
     """
     API_URL = 'https://slice.openstreetmap.us/api/'
     FILES_URL = 'https://slice.openstreetmap.us/files/'
-    MAX_EXTENTS = 5
     DEFAULT_TIMEOUT = 1800
     UUID = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
