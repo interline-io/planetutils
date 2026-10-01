@@ -10,9 +10,10 @@ LABEL org.opencontainers.image.source=https://github.com/interline-io/planetutil
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Only osm_planet_extract still needs system binaries: a correct bbox
-# extract requires reference completion (osmium's complete_ways/smart
-# strategies), which pyosmium does not expose. Everything else -- downloads,
+# Only osm_planet_extract and osm_extract_convert still need system
+# binaries: a correct bbox extract requires reference completion (osmium's
+# complete_ways/smart strategies), which pyosmium does not expose, and GeoJSON
+# conversion uses osmium export. Everything else -- downloads,
 # tile merging, timestamps, planet updates -- runs from Python wheels.
 #
 # osmosis is kept for --toolchain=osmosis and pulls in a JRE.

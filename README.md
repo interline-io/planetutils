@@ -14,6 +14,7 @@
 - [Command-line Usage](#command-line-usage)
   * [osm_planet_update](#osm_planet_update)
   * [osm_planet_extract](#osm_planet_extract)
+  * [osm_extract_convert](#osm_extract_convert)
   * [osm_extract_download](#osm_extract_download)
   * [osm_planet_get_timestamp](#osm_planet_get_timestamp)
   * [elevation_tile_download](#elevation_tile_download)
@@ -95,14 +96,16 @@ Most commands need **no system binaries at all** -- OSM and raster handling come
 the `osmium` and `rasterio` wheels, which ship prebuilt for macOS (Apple Silicon and
 Intel), Linux (x86_64 and arm64) and Windows.
 
-The one exception is `osm_planet_extract`, which still shells out. A correct bounding-box
-extract needs reference completion (osmium's `complete_ways` / `smart` strategies), and
-pyosmium does not expose a spatial filter.
+The exceptions are `osm_planet_extract` and `osm_extract_convert`, which still shell out.
+A correct bounding-box extract needs reference completion (osmium's `complete_ways` /
+`smart` strategies), and pyosmium does not expose a spatial filter. GeoJSON conversion
+uses `osmium export`, which assembles multipolygon areas.
 
 | Command | System binaries required |
 | --- | --- |
 | `osm_planet_update` | none (default `--toolchain=osmium`); `--toolchain=osmosis` needs Java + Osmosis |
 | `osm_planet_extract` | **yes** -- [Osmium Tool](https://osmcode.org/osmium-tool/), [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis), or [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/) |
+| `osm_extract_convert` | **yes** -- [Osmium Tool](https://osmcode.org/osmium-tool/) |
 | `osm_planet_get_timestamp` | none |
 | `osm_extract_download` | none |
 | `elevation_tile_download` | none |
@@ -110,7 +113,7 @@ pyosmium does not expose a spatial filter.
 | `valhalla_tilepack_download` | none |
 | `valhalla_tilepack_list` | none |
 
-To install Osmium Tool for `osm_planet_extract`:
+To install Osmium Tool for `osm_planet_extract` and `osm_extract_convert`:
 
 ```sh
 brew install osmium-tool                      # macOS
@@ -204,6 +207,25 @@ For complete help on command-line arguments:
 
 ```sh
 osm_planet_extract -h
+```
+
+### osm_extract_convert
+
+Convert OSM PBF extracts to GeoJSON or GeoJSONL (one GeoJSON `Feature` per line, for streaming with [ndjson](http://ndjson.org/) or [jsonl](http://jsonlines.org/) tools). The output has the same feature properties that OSM Extracts by Interline published: the OSM tags, plus `@type`, `@id` and `@timestamp`, with feature ids such as `w123`. Requires [Osmium Tool](https://osmcode.org/osmium-tool/).
+
+Each output file is named after its input and written to `--outpath`:
+
+```sh
+osm_extract_convert --outpath=data/osm_extracts data/osm_extracts/san-francisco.osm.pbf
+osm_extract_convert --format=geojsonl --outpath=data/osm_extracts data/osm_extracts/*.osm.pbf
+```
+
+An existing output file is an error unless you pass `--overwrite`. GeoJSON is many times larger than the PBF it comes from.
+
+For complete help on command-line arguments:
+
+```sh
+osm_extract_convert -h
 ```
 
 ### osm_extract_download
