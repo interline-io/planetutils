@@ -392,7 +392,7 @@ wheels = [
 
 [[package]]
 name = "interline-planetutils"
-version = "0.5.1"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "osmium" },
