@@ -17,7 +17,7 @@ def main():
     parser.add_argument('--outpath', help='Extract output directory', default='.')
     add_extent_arguments(parser)
     parser.add_argument('--verbose', help="Verbose output", action='store_true')
-    parser.add_argument('--toolchain', help='OSM toolchain', default='osmosis')
+    parser.add_argument('--toolchain', help='OSM toolchain: osmium (default; cuts polygons along their boundary), osmosis (requires Java) or osmctools', default='osmium')
     parser.add_argument('--strategy', help='Osmium extract strategy: simple, complete_ways, or smart', default='complete_ways')
     parser.add_argument('--commands', help='Output a command list instead of performing action, e.g. for parallel usage', action='store_true')
     args = parser.parse_args()

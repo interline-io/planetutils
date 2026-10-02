@@ -104,7 +104,7 @@ uses `osmium export`, which assembles multipolygon areas.
 | Command | System binaries required |
 | --- | --- |
 | `osm_planet_update` | none (default `--toolchain=osmium`); `--toolchain=osmosis` needs Java + Osmosis |
-| `osm_planet_extract` | **yes** -- [Osmium Tool](https://osmcode.org/osmium-tool/), [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis), or [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/) |
+| `osm_planet_extract` | **yes** -- [Osmium Tool](https://osmcode.org/osmium-tool/) (default), or [Osmosis](https://wiki.openstreetmap.org/wiki/Osmosis) or [OSM C tools](https://gitlab.com/osm-c-tools/osmctools/) with `--toolchain` |
 | `osm_extract_convert` | **yes** -- [Osmium Tool](https://osmcode.org/osmium-tool/) |
 | `osm_planet_get_timestamp` | none |
 | `osm_extract_download` | none |
@@ -200,7 +200,7 @@ To cut only some of the extents in a file, name them with `--ids`. An unknown na
 
 ```sh
 curl -LO https://raw.githubusercontent.com/interline-io/osm-extracts/master/cities.json
-osm_planet_extract --toolchain=osmium --geojson=cities.json --ids=us-ca,berlin_germany --outpath=data/osm_extracts planet-latest.osm.pbf
+osm_planet_extract --geojson=cities.json --ids=us-ca,berlin_germany --outpath=data/osm_extracts planet-latest.osm.pbf
 ```
 
 For complete help on command-line arguments:
@@ -461,11 +461,11 @@ file](https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Format),
 the format used by sources such as [JamesChevalier/cities](https://github.com/JamesChevalier/cities):
 
 ```sh
-osm_planet_extract --toolchain=osmium --poly=berlin.poly --outpath=data/osm_extracts planet-latest.osm.pbf
+osm_planet_extract --poly=berlin.poly --outpath=data/osm_extracts planet-latest.osm.pbf
 elevation_tile_download --poly=berlin.poly --zoom=12 --outpath=data/elevation
 ```
 
-Note the `--toolchain=osmium`: only Osmium extracts along polygon boundaries.
+Only Osmium, the default toolchain, extracts along polygon boundaries.
 The osmosis and osmctools toolchains take a bounding box, so they widen a
 polygon to its extent — which for a multi-section file, such as a mainland
 plus an offshore island, can be far larger than intended. PlanetUtils warns
@@ -482,13 +482,18 @@ PlanetUtils wraps up a number of libraries, including Osmosis, Osmium, and OSM C
  | PlanetUtils command | argument flag | default | options |
  | ------------------- | ------------- | ------- | ------- |
  | `osm_planet_update` | `--toolchain` | `osmium` | `osmium`, `osmosis` |
- | `osm_planet_extract` | `--toolchain` | `osmosis` | `osmosis`, `osmium`, `osmctools` |
+ | `osm_planet_extract` | `--toolchain` | `osmium` | `osmium`, `osmosis`, `osmctools` |
 
 **Changed in 0.5.0:** `osm_planet_update` now defaults to `--toolchain=osmium` rather
 than `osmosis`. Osmium needs no system binaries on any platform, because
 `pyosmium-up-to-date` ships inside the `osmium` wheel, whereas Osmosis requires Java.
 The container entrypoint already defaulted to osmium, so the CLI and the container now
 agree. `--toolchain=osmosis` still works.
+
+**Changed in 1.0.0:** `osm_planet_extract` now defaults to `--toolchain=osmium`
+rather than `osmosis`. Osmium extracts along polygon boundaries, where osmosis and
+osmctools widen a polygon to its bounding box, and it needs no Java. It matches
+`osm_planet_update` and the container. `--toolchain=osmosis` still works.
 
 If you are using `osm_planet_extract` with `--toolchain=osmium`, you can also use the `--strategy=` option to select `simple, complete_ways (default) or smart`.
 
