@@ -82,3 +82,15 @@ def test_missing_extents_file_is_a_usage_error(monkeypatch, capsys):
         run(monkeypatch, '--geojson=does-not-exist.geojson')
     assert e.value.code == 2
     assert 'could not load extents: file does not exist' in capsys.readouterr().err
+
+
+def test_osmium_is_the_default_toolchain(monkeypatch):
+    """Changed in 1.0.0: osmium cuts polygons along their boundary and needs
+    no Java, matching osm_planet_update and the container."""
+    seen = []
+    monkeypatch.setattr(planet.PlanetExtractorOsmium, 'extract_bboxes',
+                        lambda self, bboxes, **kw: seen.append(type(self)))
+    monkeypatch.setattr(sys, 'argv', [
+        'osm_planet_extract', '--bbox=0,0,1,1', '--name=x', 'planet.osm.pbf'])
+    osm_planet_extract.main()
+    assert seen == [planet.PlanetExtractorOsmium]
